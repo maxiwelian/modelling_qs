@@ -208,7 +208,6 @@ class KFAC():
         sq_fisher_norm = 0
         for ng, g in zip(nat_grads, grads):
             sq_fisher_norm += tf.reduce_sum(ng * g)
-
         eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (lr**2 * sq_fisher_norm)))
         return eta
 
@@ -216,9 +215,6 @@ class KFAC():
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
 
         with tf.device("/cpu:0"):
-            # enforce symmetry (there may be numerical errors)
-            maa = (tf.linalg.matrix_transpose(maa) + maa) / 2.
-            mss = (tf.linalg.matrix_transpose(mss) + mss) / 2.
 
             vals_a, vecs_a = tf.linalg.eigh(maa)
             vals_s, vecs_s = tf.linalg.eigh(mss)
@@ -243,13 +239,20 @@ class KFAC():
     def compute_lr(self, iteration):
         return self.lr0 / (1 + self.decay * iteration)
 
+    @staticmethod
+    def get_tr_norm(m_xx):
+        trace = tf.linalg.trace(m_xx)
+        return tf.maximum(1e-10 * tf.ones_like(trace), trace)
+
     def ft_damp(self, m_aa, m_ss, conv_factor):  # factored tikhonov damping
         dim_a = m_aa.shape[-1]
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
-        tr_a = tf.linalg.trace(m_aa)
-        tr_s = tf.linalg.trace(m_ss)
+        tr_a = self.get_tr_norm(m_aa)
+        tr_s = self.get_tr_norm(m_ss)
+        # tr_a = tf.linalg.trace(m_aa)
+        # tr_s = tf.linalg.trace(m_ss)
 
         pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
