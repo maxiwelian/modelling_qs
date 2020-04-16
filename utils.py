@@ -3,6 +3,7 @@ import pickle as pk
 import numpy as np
 import inspect
 import os
+from time import time
 import re
 from tensorflow.python.client import device_lib
 import shutil
@@ -20,15 +21,20 @@ def print_neat(str, tensor, prec=2):
 
 def print_iteration(printer, epoch):
     for key, val in printer.items():
-        if 'weights' in key:
-            continue
-        print_neat(key, val[0], val[1])
+        try:
+            print_neat(key, val[0], val[1])
+        except:
+            pass
     print('\n')
 
 
 def log_iteration(printer, epoch):
     for key, val in printer.items():
-        tf.summary.scalar(key, tf.reshape(val[0], []), epoch)
+        try:
+            tf.summary.scalar(key, tf.reshape(val[0], []), epoch)
+        except:
+            pass
+
     tf.summary.flush()
     print('\n')
 
@@ -207,6 +213,8 @@ def log(models, updates, log_config, iteration):
     printer['params/max_param'] = [max_param, 3]
 
     # printer
+    total_time = time()
+    printer['time/average_time'] = [(total_time - log_config['t0']) / (iteration+1), 2]
     print_iteration(printer, iteration)
 
     for layer_id, grad in enumerate(updates):
@@ -217,5 +225,7 @@ def log(models, updates, log_config, iteration):
 
     log_iteration(printer, iteration)
     tf.summary.flush()
+
+
     return
 

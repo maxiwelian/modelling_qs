@@ -51,19 +51,19 @@ class fermiNet(tk.Model):
         # --- model
         self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down)
 
-        self.single_stream_in = Stream(nf_single_in_mixed, nf_hidden_single, n_spins)
-        self.pairwise_stream_in = Stream(nf_pairwise_in, nf_hidden_pairwise, n_pairwise)
+        self.single_stream_in = Stream(nf_single_in_mixed, nf_hidden_single, n_spins, 0)
+        self.pairwise_stream_in = Stream(nf_pairwise_in, nf_hidden_pairwise, n_pairwise, 0)
         self.mixer_in = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.s1 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins)
-        self.p1 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise)
+        self.s1 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 1)
+        self.p1 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, 1)
         self.m1 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.s2 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins)
-        self.p2 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise)
+        self.s2 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 2)
+        self.p2 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, 2)
         self.m2 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins)
+        self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 3)
 
         self.envelopes = \
             envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants)
@@ -158,7 +158,8 @@ class envelopeLayer(tk.Model):
         b = tf.zeros((n_determinants, n_spins, 1, 1))
         w = tf.concat((w, b), axis=2)
 
-        self.w = tf.Variable(w, name='env_%s_w_%i' % (name, n_spins))
+        self.w = tf.Variable(w,
+                             name='env_%s_w_%i' % (name, n_spins))
 
         self.Sigma = tf.Variable(initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3),
                                  name='env_%s_sigma_%i' % (name, n_spins))
@@ -181,10 +182,12 @@ class envelopeLayer(tk.Model):
         exponent = tf.einsum('njmv,kimvc->njkimc', ae_vectors, self.Sigma)
         exponential = tf.exp(-tf.norm(exponent, axis=-1))
 
-        # env_pi 'nkjim,kims->nkjis'
+        # env_pi 'njkim,kims->nkjis'
         exp = tf.einsum('njkim,kims->njkis', exponential, self.Pi)
 
         output = factor * exp
+        output = tf.transpose(output, perm=(0, 2, 3, 1, 4))  # ij ordering doesn't matter / slight numerical diff
+
         return tf.squeeze(output, -1), (inputs, ae_vectors, exponential), (factor, exponent, exp)
 
 
@@ -192,7 +195,7 @@ class Stream(tk.Model):
     """
     single / pairwise electron streams
     """
-    def __init__(self, in_dim, out_dim, n_spins, dtype=tf.float32, name=''):
+    def __init__(self, in_dim, out_dim, n_spins, node):
         super(Stream, self).__init__()
         # --- variables
         # lim = tf.math.sqrt(6 / (in_dim + out_dim))
@@ -201,7 +204,7 @@ class Stream(tk.Model):
         b = tf.zeros((1, out_dim))
         # b = tf.random.normal((1, out_dim), stddev=std, dtype=dtype)
         w = tf.concat((w, b), axis=0)
-        self.w = tf.Variable(w, name='stream_%i' % n_spins)
+        self.w = tf.Variable(w, name='stream%i_%i' % (node, n_spins))
 
     def call(self, inputs, n_samples, n_streams):
         inputs_w_bias = tf.concat((inputs, tf.ones((n_samples, n_streams, 1))), axis=-1)

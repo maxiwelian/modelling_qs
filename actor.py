@@ -3,6 +3,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from energy.energy_utils import clip
 
+
 @ray.remote(num_gpus=1)
 class Network(object):
     def __init__(self, config):
@@ -30,22 +31,29 @@ class Network(object):
         self.model = fermiNet(**ferminet_params)
         print('initialized model')
 
-        self.n_params = np.sum([np.prod(v.get_shape().as_list()) for v in self.model.trainable_weights])
-        self.n_layers = len(self.model.trainable_weights)
-        self.layers = [w.name for w in self.model.trainable_weights]
+        # * - pretraining
+        pretrainer_params = filter_dict(config, Pretrainer)
+        self.pretrainer = Pretrainer(**pretrainer_params)
 
+        # * - sampling
         self.sample_space = RandomWalker(tf.zeros(3),
                                          tf.eye(3) * config['sampling_init'],
                                          tf.zeros(3),
                                          tf.eye(3) * config['sampling_steps'])
-
-        pretrainer_params = filter_dict(config, Pretrainer)
-        self.pretrainer = Pretrainer(**pretrainer_params)
-
         model_sampler_params = filter_dict(config, MetropolisHasting)
         self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, **model_sampler_params)
         self.samples = self.model_sampler.initialize_samples()
+        self.burn()
+        self.pretrain_samples = self.model_sampler.initialize_samples()
+        self.burn_pretrain()
 
+        # * - model details
+        self.n_params = np.sum([np.prod(v.get_shape().as_list()) for v in self.model.trainable_weights])
+        self.n_layers = len(self.model.trainable_weights)
+        self.layers = [w.name for w in self.model.trainable_weights]
+        self.trainable_shapes = [w.shape for w in self.model.trainable_weights]
+
+        # * - optimizers
         self.optimizer_pretrain = tf.keras.optimizers.Adam(learning_rate=0.001)
         if config['opt'] == 'adam':
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=config['lr0'])
@@ -70,7 +78,6 @@ class Network(object):
         self.e_loc = tf.zeros(len(self.samples))
         self.amps = tf.zeros(len(self.samples))
 
-
     # gradients & energy
     def get_energy(self):
         self.samples, self.amps, self.acceptance = self.model_sampler.sample(self.samples)
@@ -82,17 +89,21 @@ class Network(object):
         grads = self.pretrainer.compute_grads(self.samples, self.model)
         return grads
 
-    def get_grads(self, e_loc_centered):
+    def get_grads(self):
+        e_loc = self.get_energy()
+        e_loc_centered = center_energy(e_loc)
         grads = self._extract_grads(self.model,
                                     self.samples,
                                     e_loc_centered,
                                     self.n_samples)
         return grads
 
-    def get_grads_and_a_and_s(self):
+    def get_grads_and_maa_and_mss(self):
+        e_loc = self.get_energy()
+        e_loc_centered = center_energy(e_loc)
         grads, m_aa, m_ss = self.kfac.extract_grads_and_a_and_s(self.model,
                                                                 self.samples,
-                                                                self.e_loc_centered,
+                                                                e_loc_centered,
                                                                 self.n_samples)
         return grads, m_aa, m_ss
 
@@ -103,14 +114,14 @@ class Network(object):
     def initialize_pretrain_samples(self):
         self.pretrain_samples = self.model_sampler.initialize_samples()
 
-    def sample(self):
-        self.samples, _, _ = self.model_sampler.sample(self.samples)
-
     def burn(self):
         self.samples = self.model_sampler.burn(self.samples)
 
     def burn_pretrain(self):
         self.pretrain_samples = self.model_sampler.burn_pretrain(self.pretrain_samples)
+
+    def get_samples(self):
+        return self.samples.numpy()
 
     # optimizers
     def update_weights(self, grads):
@@ -119,9 +130,14 @@ class Network(object):
     def update_weights_pretrain(self, grads):
         self.optimizer_pretrain.apply_gradients(zip(grads, self.model.trainable_weights))
 
+    def step_forward(self, updates):
+        updates[-1] = tf.reshape(updates[-1], self.trainable_shapes[-1])
+        for up, weight in zip(updates, self.model.trainable_weights):
+            weight.assign_add(up)
+
     # network details
     def get_info(self):
-        return self.amps, self.acceptance, self.samples
+        return self.amps, self.acceptance, self.samples, self.e_loc
 
     def get_weights(self):
         return self.model.get_weights()
@@ -130,10 +146,7 @@ class Network(object):
         self.model.set_weights(weights)
 
     def get_model_details(self):
-        return self.n_params, self.n_layers, self.trainable_shapes, self.layers, self.conv_factors
-
-    def get_samples(self):
-        return self.samples.numpy()
+        return (self.n_params, self.n_layers, self.trainable_shapes, self.layers)
 
     def load_model(self, path=None):
         if path is None:
@@ -147,6 +160,8 @@ class Network(object):
         self.samples = \
             self._tf.convert_to_tensor(self._load_sample(path)[:self.n_samples, ...])
 
+
+# The functions below are proxies for the actor
 
 # sampling
 def burn(models, n_burns):
@@ -190,18 +205,31 @@ def update_weights_optimizer(models, grads):
     return
 
 
-def get_grads_and_maa_and_mss(models):
+# kfac
+def get_grads_and_maa_and_mss(models, layers):
     data = ray.get([model.get_grads_and_maa_and_mss.remote() for model in models])
+    grads = [d[0] for d in data]
+    m_aa = [d[1] for d in data]
+    m_ss = [d[2] for d in data]
 
-    mean_m_aa = []
-    mean_m_ss = []
     mean_g = []
-    for j, _ in enumerate(models.trainable_weights):
-        mean_g.append(tf.reduce_mean(tf.stack([data[i][0][j] for i, _ in enumerate(models)]), axis=0))
-        mean_m_aa.append(tf.reduce_mean(tf.stack([data[i][1][j] for i in enumerate(models)]), axis=0))
-        mean_m_ss.append(tf.reduce_mean(tf.stack([data[i][2][j] for i in enumerate(models)]), axis=0))
+    mean_m_aa = {}
+    mean_m_ss = {}
+    for j, name in enumerate(layers):
+        mean_g.append(tf.reduce_mean(tf.stack([g[j] for g in grads]), axis=0))
+        mean_m_aa[name] = (tf.reduce_mean(tf.stack([ma[name] for ma in m_aa]), axis=0))
+        mean_m_ss[name] = (tf.reduce_mean(tf.stack([ms[name] for ms in m_ss]), axis=0))
 
     return mean_g, mean_m_aa, mean_m_ss
+
+
+def step_forward(models, updates):
+    updates_id = ray.put(updates)
+    models[0].step_forward.remote(updates_id)
+    weights_id = models[0].get_weights.remote()
+    [model.set_weights.remote(weights_id) for model in models[1:]]
+    return
+
 
 # energy
 def get_energy(models):
@@ -217,6 +245,12 @@ def get_energy_and_center(models, iteration):
     e_loc_clipped = clip(e_loc, iteration)
     e_loc_centered = e_loc_clipped - tf.reduce_mean(e_loc_clipped)
     return e_loc_centered, e_mean, e_loc, e_std
+
+
+def center_energy(e_loc):
+    e_loc_clipped = clip(e_loc)
+    e_loc_centered = e_loc_clipped - tf.reduce_mean(e_loc_clipped)
+    return e_loc_centered
 
 
 # utils

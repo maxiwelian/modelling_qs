@@ -28,8 +28,7 @@ class Pretrainer():
                  n_electrons,
                  n_spin_up,
                  n_spin_down,
-                 pretrain_path,
-                 directory):
+                 pretrain_path):
 
         try:
             self.super_twist, self.mol = reader(pretrain_path)
@@ -37,7 +36,6 @@ class Pretrainer():
         except:
             print('pretrain data does not exist...')
 
-        self.directory = directory
         self.n_spin_up = n_spin_up
         self.n_spin_down = n_spin_down
 
