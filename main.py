@@ -6,7 +6,6 @@ def save_pretrain_model_and_samples(models, config, iteration):
 
 def main(config):
     if config['seed']:
-        print('setting seed')
         tf.random.set_seed(7)
         np.random.seed(7)
 
@@ -31,15 +30,23 @@ def main(config):
             load_models(models, config['saved_model'])
 
         else:  # pretrain the model
-            # if os.path.exists(config['pretrained_model']) and os.path.exists(config['pretrained_samples']):
-            if False:
+            if os.path.exists(config['pretrained_model']) and os.path.exists(config['pretrained_samples'])\
+                    and not config['pretrain']:
                 print('Loading pretrained model...')  # load the pretrained model
                 load_models(models, config['pretrained_model'])
+
             else:  # pretrain
                 for iteration in range(config['n_pretrain_iterations']):
                     new_grads = get_pretrain_grads(models)
                     update_weights_pretrain(models, new_grads)
+
+                    if iteration % 50 == 0:
+                        _, e_mean, _ = get_energy(models)
+                        tf.summary.scalar('pretrain/energy', e_mean, iteration)
+                        tf.summary.flush()
+
                     print('pretrain iteration %i...' % iteration)
+
                 save_pretrain_model_and_samples(models, config, iteration)
 
             load_samples(models, config['pretrained_samples'])
@@ -83,6 +90,8 @@ if __name__ == '__main__':
     from actor import get_grads, update_weights_optimizer  # adam
     from actor import get_grads_and_maa_and_mss, step_forward  # kfac
     from actor import burn  # sampling
+    from actor import get_energy  # energy
+
     from model.gradients import KFAC
 
     from utils import *
@@ -96,6 +105,7 @@ if __name__ == '__main__':
 
     # pretraining
     parser.add_argument('-pi', '--n_pretrain_iterations', default=1000, type=int)
+    parser.add_argument('--pretrain', help='force a pretrain', action='store_true')
 
     # training
     parser.add_argument('-i', '--n_iterations', default=10000, type=int)
@@ -114,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('-ss', '--sampling_steps', default=0.02, type=float)
     parser.add_argument('-bi', '--n_burn_in', default=1, type=int)
     parser.add_argument('-cl', '--correlation_length', default=10, type=int)
-    parser.add_argument('-bb', '--burn_batches', default=1, type=int)
+    parser.add_argument('-bb', '--burn_batches', default=10, type=int)  # number of batches in a burn
 
     # model
     parser.add_argument('-S', '--system', default='Be', type=str)
@@ -128,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--load_iteration', default=0, type=int)
     parser.add_argument('-exp_dir', '--exp_dir', default='', type=str)
     parser.add_argument('-exp', '--exp', default='', type=str)
-    parser.add_argument('-dir', '--dir', default='', type=str)
+    parser.add_argument('--local', help='is local', action='store_true')
 
     # logging
     parser.add_argument('-le', '--log_every', default=1, type=int)
@@ -143,7 +153,7 @@ if __name__ == '__main__':
         args.n_determinants = 16
 
     # generate the paths
-    if args.dir == '':
+    if args.local:
         save_directory = DIR
     else:
         save_directory = '/nobackup/amwilso4/f_wf/'
@@ -155,7 +165,7 @@ if __name__ == '__main__':
         os.makedirs(exp_dir)
 
     n_exps = len(os.listdir(exp_dir))
-    experiment = '%s_%s_%.4f_%i' % (args.system, args.opt, args.lr0, n_exps)
+    experiment = '%s_%s_%s_%.4f_%i' % (args.exp, args.system, args.opt, args.lr0, n_exps)
     if args.opt == 'kfac':
         experiment += '_%s_%s' % (args.damping_method, args.conv_approx)  # dmeth, conv_apprx etc
 
@@ -190,8 +200,8 @@ if __name__ == '__main__':
         z_atoms.append(z_atom)
     z_atoms = tf.concat(z_atoms, axis=1)
 
-    config = {'n_samples_total':args.n_samples,
-              'n_samples_actor':args.n_samples // args.n_gpus,
+    config = {'n_samples_total': args.n_samples,
+              'n_samples_actor': args.n_samples // args.n_gpus,
 
               # paths
               'pretrained_model': path_pretrained_model,
@@ -203,7 +213,8 @@ if __name__ == '__main__':
 
               # values
               'r_atoms': r_atoms,
-              'z_atoms': z_atoms
+              'z_atoms': z_atoms,
+              'n_spins': systems[args.system]['n_electrons']
     }
 
     config = dict(args_config, **config)

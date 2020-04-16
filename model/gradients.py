@@ -12,11 +12,12 @@ def extract_grads(model, inp, e_loc_centered, n_samples):
 class KFAC_Actor():
     def __init__(self,
                  model,
+                 n_spins,
                  conv_approx):
 
         self.layers = [w.name for w in model.trainable_weights]
 
-        self.n_spins = 4
+        self.n_spins = n_spins
         self.cov_moving_weight = 0.95
         self.cov_weight = 0.05
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
@@ -59,12 +60,12 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = float(name[-3])
 
+            a = self.absorb_j(a, name)  # couple different conv approx methods
+            s = self.absorb_j(s, name)
+
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
                 s = self.center(s)
-
-            a = self.absorb_j(a, name)  # couple different conv approx methods
-            s = self.absorb_j(s, name)
 
             a = self.append_bias_if_needed(a, name)  # after the centering
 
@@ -214,11 +215,11 @@ class KFAC():
     def compute_eig_decomp(self, maa, mss):
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
 
-        # enforce symmetry (there may be numerical errors)
-        maa = (tf.linalg.matrix_transpose(maa) + maa) / 2.
-        mss = (tf.linalg.matrix_transpose(mss) + mss) / 2.
-
         with tf.device("/cpu:0"):
+            # enforce symmetry (there may be numerical errors)
+            maa = (tf.linalg.matrix_transpose(maa) + maa) / 2.
+            mss = (tf.linalg.matrix_transpose(mss) + mss) / 2.
+
             vals_a, vecs_a = tf.linalg.eigh(maa)
             vals_s, vecs_s = tf.linalg.eigh(mss)
 
