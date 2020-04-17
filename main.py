@@ -103,11 +103,11 @@ if __name__ == '__main__':
     import tensorflow as tf
 
     from actor import Network
-    from actor import get_pretrain_grads, update_weights_pretrain  # pretraining
-    from actor import get_grads, update_weights_optimizer  # adam
-    from actor import get_grads_and_maa_and_mss, step_forward  # kfac
-    from actor import burn, burn_pretrain  # sampling
-    from actor import get_energy  # energy
+    from actor_proxy import get_pretrain_grads, update_weights_pretrain  # pretraining
+    from actor_proxy import get_grads, update_weights_optimizer  # adam
+    from actor_proxy import get_grads_and_maa_and_mss, step_forward  # kfac
+    from actor_proxy import burn, burn_pretrain  # sampling
+    from actor_proxy import get_energy  # energy
 
     from model.gradients import KFAC
 

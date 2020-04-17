@@ -41,7 +41,7 @@ class KFAC_Actor():
             self.m_aa[name] = tf.ones(shape_a)
             self.m_ss[name] = tf.ones(shape_s)
 
-        self.should_center = False  # this is true by default as it is correct, though we can change
+        self.should_center = True  # this is true by default as it is correct, though we can change
         self.iteration = 0
 
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
