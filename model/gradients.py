@@ -83,8 +83,9 @@ class KFAC_Actor():
 
             normalize = self.compute_normalization(n_samples, conv_factor)  # this is dependent on the conv approx
 
-            aa = self.outer_product_and_sum(a) / normalize
-            ss = self.outer_product_and_sum(s) / normalize
+            print(a.shape)
+            aa = self.outer_product_and_sum(a, name) / normalize
+            ss = self.outer_product_and_sum(s, name) / normalize
 
             # print(aa.shape, ss.shape, g.shape)
             # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
@@ -114,7 +115,6 @@ class KFAC_Actor():
         # cov_weight = 1 - cov_moving_weight
         cov_moving_weight = self.cov_moving_weight
         cov_weight = self.cov_weight
-
         # tensorflow and or ray has a weird thing about inplace operations??
         self.m_aa[name] = self.m_aa[name] * cov_moving_weight / self.cov_normalize  # multiply
         self.m_aa[name] = self.m_aa[name] + (cov_weight * aa) / self.cov_normalize  # add
@@ -135,7 +135,9 @@ class KFAC_Actor():
     # w 'na, nas -> ns'
 
     @staticmethod
-    def outer_product_and_sum(x):
+    def outer_product_and_sum(x, name):
+        if 'stream' in name:
+            return tf.linalg.matmul(x, x, transpose_a=True)
         outer_product = tf.linalg.matmul(tf.expand_dims(x, -1), tf.expand_dims(x, -2))
         return tf.reduce_sum(outer_product, axis=0)
 
