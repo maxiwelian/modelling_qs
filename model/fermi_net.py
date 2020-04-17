@@ -4,7 +4,7 @@ import numpy as np
 from utils.utils import tofloat
 
 
-def initializer(in_dim, weight_shape, out_dim):
+def initializer(in_dim, weight_shape, out_dim, _):
     minval = tf.maximum(-1., -(6/(in_dim+out_dim))**0.5)
     maxval = tf.minimum(1., (6/(in_dim+out_dim))**0.5)
     weights = tf.random.uniform(weight_shape, minval=minval, maxval=maxval)
@@ -14,12 +14,15 @@ def env_initializer(in_dim, weight_shape, out_dim, env_init):
     weights = tf.random.uniform(weight_shape, minval=-env_init, maxval=env_init)
     return weights
 
+env_initializer = initializer
+
 
 class fermiNet(tk.Model):
     """
     fermi net, baby
     """
     def __init__(self,
+                 gpu_id,
                  r_atoms,
                  n_electrons,
                  n_atoms,
@@ -55,26 +58,27 @@ class fermiNet(tk.Model):
         # --- model
         self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down)
 
-        self.single_stream_in = Stream(nf_single_in_mixed, nf_hidden_single, n_spins, 0)
-        self.pairwise_stream_in = Stream(nf_pairwise_in, nf_hidden_pairwise, n_pairwise, 0)
+        self.single_stream_in = Stream(nf_single_in_mixed, nf_hidden_single, n_spins, gpu_id, 0)
+        self.pairwise_stream_in = Stream(nf_pairwise_in, nf_hidden_pairwise, n_pairwise, gpu_id, 0)
         self.mixer_in = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.s1 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 1)
-        self.p1 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, 1)
+        self.s1 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 1)
+        self.p1 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, gpu_id, 1)
         self.m1 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.s2 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 2)
-        self.p2 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, 2)
+        self.s2 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 2)
+        self.p2 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, gpu_id, 2)
         self.m2 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
 
-        self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 3)
+        self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 3)
 
         self.envelopes = \
-            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants, env_init)
+            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants, env_init, gpu_id)
 
-        # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1))
-        # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')  # name_cf (conv factor)
-        self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init), name='w_1')
+        # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1, _))
+        # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')
+        self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init / n_determinants),
+                                        name='%i_w_1' % gpu_id)
         # self.epoch = 1
 
     # @tf.function  # phase = 0, 1, 2 // test, supervised, unsupervised
@@ -128,7 +132,7 @@ class fermiNet(tk.Model):
 
 
 class envelopesLayer(tk.Model):
-    def __init__(self, n_spin_up, n_spin_down, n_atoms, nf_single, n_determinants, env_init):
+    def __init__(self, n_spin_up, n_spin_down, n_atoms, nf_single, n_determinants, env_init, gpu_id):
         super(envelopesLayer, self).__init__()
         # --- variables
         self.n_spin_up = n_spin_up
@@ -137,8 +141,8 @@ class envelopesLayer(tk.Model):
         self.n_atoms = n_atoms
 
         # --- envelopes
-        self.spin_up_envelope = envelopeLayer(n_spin_up, n_atoms, nf_single, n_determinants, env_init, name='up')
-        self.spin_down_envelope = envelopeLayer(n_spin_down, n_atoms, nf_single, n_determinants, env_init, name='down')
+        self.spin_up_envelope = envelopeLayer(n_spin_up, n_atoms, nf_single, n_determinants, env_init, gpu_id, name='up')
+        self.spin_down_envelope = envelopeLayer(n_spin_down, n_atoms, nf_single, n_determinants, env_init, gpu_id, name='down')
 
     # @tf.function
     def call(self, inputs, ae_vectors, n_samples):
@@ -156,20 +160,20 @@ class envelopesLayer(tk.Model):
 
 
 class envelopeLayer(tk.Model):
-    def __init__(self, n_spins, n_atoms, nf_single, n_determinants, env_init, name=''):
+    def __init__(self, n_spins, n_atoms, nf_single, n_determinants, env_init, gpu_id, name=''):
         super(envelopeLayer, self).__init__()
         # k: n_determinants, i: n_electrons, f: n_features
-        w = initializer(nf_single, (n_determinants, n_spins, nf_single, 1), 1)
+        w = initializer(nf_single, (n_determinants, n_spins, nf_single, 1), 1, None)
         b = tf.zeros((n_determinants, n_spins, 1, 1))
         w = tf.concat((w, b), axis=2)
 
-        self.w = tf.Variable(w, name='env_%s_w_%i' % (name, n_spins))
+        self.w = tf.Variable(w, name='%i_env_%s_w_%i' % (gpu_id, name, n_spins))
 
         self.Sigma = tf.Variable(env_initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3, env_init),
-                                 name='env_%s_sigma_%i' % (name, n_spins))
+                                 name='%i_env_%s_sigma_%i' % (gpu_id, name, n_spins))
 
         self.Pi = tf.Variable(env_initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1, env_init),
-                              name='env_%s_pi_%i' % (name, n_spins))
+                              name='%i_env_%s_pi_%i' % (gpu_id, name, n_spins))
 
     # @tf.function
     def call(self, inputs, ae_vectors, n_samples, n_spins, n_k, n_atoms):
@@ -199,16 +203,16 @@ class Stream(tk.Model):
     """
     single / pairwise electron streams
     """
-    def __init__(self, in_dim, out_dim, n_spins, node):
+    def __init__(self, in_dim, out_dim, n_spins, gpu_id, node):
         super(Stream, self).__init__()
         # --- variables
         # lim = tf.math.sqrt(6 / (in_dim + out_dim))
         # w = tf.concat((tf.random.uniform((in_dim, out_dim), minval=-lim, maxval=lim), tf.zeros((1, out_dim))), axis=0)
-        w = initializer(in_dim, (in_dim, out_dim), out_dim)
+        w = initializer(in_dim, (in_dim, out_dim), out_dim, None)
         b = tf.zeros((1, out_dim))
         # b = tf.random.normal((1, out_dim), stddev=std, dtype=dtype)
         w = tf.concat((w, b), axis=0)
-        self.w = tf.Variable(w, name='stream%i_%i' % (node, n_spins))
+        self.w = tf.Variable(w, name='%i_stream%i_%i' % (gpu_id, node, n_spins))
 
     def call(self, inputs, n_samples, n_streams):
         inputs_w_bias = tf.concat((inputs, tf.ones((n_samples, n_streams, 1))), axis=-1)

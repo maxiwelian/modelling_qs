@@ -5,7 +5,7 @@ from energy.energy_utils import clip
 
 @ray.remote(num_gpus=1)
 class Network(object):
-    def __init__(self, config):
+    def __init__(self, config, gpu_id):
         import tensorflow as tf
         import numpy as np
         from time import time
@@ -62,8 +62,9 @@ class Network(object):
         elif config['opt'] == 'kfac':
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'], decay=config['decay'])
             kfac_config = filter_dict(config, KFAC_Actor)
-            self.kfac = KFAC_Actor(self.model, **kfac_config)
+            self.kfac = KFAC_Actor(self.model, gpu_id, **kfac_config)
             print('Using kfac optimizer')
+        print('n_samples per actor: ', self.n_samples)
 
         # store references to avoid reimport
         self._extract_grads = extract_grads
@@ -171,6 +172,11 @@ class Network(object):
 def burn(models, n_burns):
     for _ in range(n_burns):
         [model.burn.remote() for model in models]
+
+
+def burn_pretrain(models, n_burns):
+    for _ in range(n_burns):
+        [model.burn_pretrain.remote() for model in models]
 
 
 # pretraining

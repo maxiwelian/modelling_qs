@@ -21,7 +21,7 @@ class KFAC_Actor():
 
         self.n_spins = n_spins
         self.cov_moving_weight = 0.95
-        self.cov_weight = 0.05
+        self.cov_weight = 1.
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':
@@ -41,7 +41,7 @@ class KFAC_Actor():
             self.m_aa[name] = tf.ones(shape_a)
             self.m_ss[name] = tf.ones(shape_s)
 
-        self.should_center = True  # this is true by default as it is correct, though we can change
+        self.should_center = False  # this is true by default as it is correct, though we can change
         self.iteration = 0
 
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
@@ -69,12 +69,12 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = float(name[-3])
 
-            a = self.absorb_j(a, name)  # couple different conv approx methods
-            s = self.absorb_j(s, name)
-
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
                 s = self.center(s)
+
+            a = self.absorb_j(a, name)  # couple different conv approx methods
+            s = self.absorb_j(s, name)
 
             a = self.append_bias_if_needed(a, name)  # after the centering
 
@@ -123,7 +123,8 @@ class KFAC_Actor():
 
     @staticmethod
     def center(x):
-        return x - tf.reduce_mean(x, axis=0)
+        xc = tf.reshape(x, (-1, *x.shape[2:]))
+        return x - tf.reduce_mean(xc, axis=0, keepdims=True)
 
     # stream 'njf, fs -> njs' + append bias
     # env_w 'njf,kifs->njkis' + append bias
@@ -192,7 +193,8 @@ class KFAC():
                  decay,
                  initial_damping,
                  norm_constraint,
-                 damping_method):
+                 damping_method,
+                 conv_approx):
 
         self.lr0 = lr0
         self.decay = decay
@@ -203,11 +205,22 @@ class KFAC():
 
         if damping_method == 'tikhonov':
             self.damp = lambda x, y, z, h, i: (x, y)  # do nothing
-            self.decomp_damping = lambda conv_factor: self.damping / conv_factor
+            if conv_approx == 'ba':
+                self.decomp_damping = lambda conv_factor: self.damping / conv_factor**2
+                self.nat_grad_conv_norm = lambda conv_factor: conv_factor**2
+            else:  # mg
+                self.decomp_damping = lambda conv_factor: self.damping / conv_factor
+                self.nat_grad_conv_norm = lambda conv_factor: conv_factor
 
         elif damping_method == 'ft':  # factored tikhonov
             self.damp = self.ft_damp
             self.decomp_damping = lambda conv_factor: 0.  # add zero in the inversion as damping is done before
+
+        if conv_approx == 'ba':
+            self.nat_grad_conv_norm = lambda conv_factor: conv_factor ** 2
+        else:  # mg
+            self.nat_grad_conv_norm = lambda conv_factor: conv_factor
+
 
     def compute_updates(self, grads, m_aa, m_ss, iteration):
         lr = self.compute_lr(iteration)
@@ -224,8 +237,9 @@ class KFAC():
 
             decomp_damping = self.decomp_damping(conv_factor)  # calls depending on the damping method
 
+            normalize = self.nat_grad_conv_norm(conv_factor)
             # T F + \lambda I = T (F + \lambda I / (T))
-            ng = self.compute_nat_grads(vals_a, vecs_a, vals_s, vecs_s, g, decomp_damping) / conv_factor
+            ng = self.compute_nat_grads(vals_a, vecs_a, vals_s, vecs_s, g, decomp_damping) / normalize
 
             nat_grads.append(ng)
 

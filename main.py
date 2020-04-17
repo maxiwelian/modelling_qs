@@ -36,6 +36,9 @@ def main(config):
                 load_models(models, config['pretrained_model'])
 
             else:  # pretrain
+                # burn_pretrain(models, 10)
+                [model.burn_pretrain.remote() for model in models]
+
                 for iteration in range(config['n_pretrain_iterations']):
                     new_grads = get_pretrain_grads(models)
                     update_weights_pretrain(models, new_grads)
@@ -48,12 +51,12 @@ def main(config):
 
                     print('pretrain iteration %i...' % iteration)
 
+                print('burning')
+                burn(models, config['n_burn_in'])  # burn in
+
                 save_pretrain_model_and_samples(models, config, iteration)
 
             load_samples(models, config['pretrained_samples'])
-
-        print('burning')
-        burn(models, config['n_burn_in'])  # burn in
 
         print('optimizing')
         for iteration in range(n_iterations):
@@ -87,7 +90,6 @@ def main(config):
 
 
 if __name__ == '__main__':
-
     import ray
     ray.init()
 
@@ -104,7 +106,7 @@ if __name__ == '__main__':
     from actor import get_pretrain_grads, update_weights_pretrain  # pretraining
     from actor import get_grads, update_weights_optimizer  # adam
     from actor import get_grads_and_maa_and_mss, step_forward  # kfac
-    from actor import burn  # sampling
+    from actor import burn, burn_pretrain  # sampling
     from actor import get_energy  # energy
 
     from model.gradients import KFAC
@@ -148,7 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--nf_hidden_single', default=256, type=int)
     parser.add_argument('-p', '--nf_hidden_pairwise', default=32, type=int)
     parser.add_argument('-k', '--n_determinants', default=16, type=int)
-    parser.add_argument('-ei', '--env_init', default=0.001, type=float)
+    parser.add_argument('-ei', '--env_init', default=1., type=float)
 
     # paths
     parser.add_argument('-l', '--load_iteration', default=0, type=int)
@@ -172,7 +174,7 @@ if __name__ == '__main__':
     if args.local:
         save_directory = DIR
     else:
-        save_directory = '/nobackup/amwilso4/f_wf/'
+        save_directory = '/nobackup/amwilso4/modelling_qs/'
 
     # name the experiment
     system_directory = os.path.join(save_directory, 'experiments', args.system)
