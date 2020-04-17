@@ -86,7 +86,8 @@ class KFAC_Actor():
             aa = self.outer_product_and_sum(a) / normalize
             ss = self.outer_product_and_sum(s) / normalize
 
-            assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
+            # print(aa.shape, ss.shape, g.shape)
+            # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
 
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
@@ -147,7 +148,7 @@ class KFAC_Actor():
 
     @staticmethod
     def expand_dim_s(s, name):
-        if 'w_' in name:
+        if 'wf' in name:
             return tf.expand_dims(tf.squeeze(s), -1)
         return s
 

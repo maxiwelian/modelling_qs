@@ -51,12 +51,12 @@ def main(config):
 
                     print('pretrain iteration %i...' % iteration)
 
-                print('burning')
-                burn(models, config['n_burn_in'])  # burn in
-
                 save_pretrain_model_and_samples(models, config, iteration)
 
             load_samples(models, config['pretrained_samples'])
+
+            print('burning')
+            burn(models, config['n_burn_in'])  # burn in
 
         print('optimizing')
         for iteration in range(n_iterations):
