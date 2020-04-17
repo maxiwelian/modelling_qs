@@ -78,7 +78,7 @@ class fermiNet(tk.Model):
         # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1, _))
         # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')
         self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init / n_determinants),
-                                        name='%i_w_1' % gpu_id)
+                                        name='%i_wf_1' % gpu_id)
         # self.epoch = 1
 
     # @tf.function  # phase = 0, 1, 2 // test, supervised, unsupervised

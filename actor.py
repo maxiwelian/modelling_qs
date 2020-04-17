@@ -28,7 +28,7 @@ class Network(object):
         self.model_path = config['model_path']
 
         ferminet_params = filter_dict(config, fermiNet)
-        self.model = fermiNet(**ferminet_params)
+        self.model = fermiNet(gpu_id, **ferminet_params)
         print('initialized model')
 
         # * - pretraining
@@ -62,7 +62,7 @@ class Network(object):
         elif config['opt'] == 'kfac':
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'], decay=config['decay'])
             kfac_config = filter_dict(config, KFAC_Actor)
-            self.kfac = KFAC_Actor(self.model, gpu_id, **kfac_config)
+            self.kfac = KFAC_Actor(self.model, **kfac_config)
             print('Using kfac optimizer')
         print('n_samples per actor: ', self.n_samples)
 

@@ -86,7 +86,7 @@ class KFAC_Actor():
             aa = self.outer_product_and_sum(a) / normalize
             ss = self.outer_product_and_sum(s) / normalize
 
-            # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
+            assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
 
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
@@ -107,18 +107,19 @@ class KFAC_Actor():
         validate = tf.reduce_mean(tf.abs(g - g_new))
         print(validate)
 
+    # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
     def update_m_aa_and_m_ss(self, aa, ss, name, iteration):
-        # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
         # cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
         # cov_weight = 1 - cov_moving_weight
         cov_moving_weight = self.cov_moving_weight
         cov_weight = self.cov_weight
 
-        self.m_aa[name] *= cov_moving_weight / self.cov_normalize  # multiply
-        self.m_aa[name] += (cov_weight * aa) / self.cov_normalize  # add
+        # tensorflow and or ray has a weird thing about inplace operations??
+        self.m_aa[name] = self.m_aa[name] * cov_moving_weight / self.cov_normalize  # multiply
+        self.m_aa[name] = self.m_aa[name] + (cov_weight * aa) / self.cov_normalize  # add
 
-        self.m_ss[name] *= cov_moving_weight / self.cov_normalize
-        self.m_ss[name] += (cov_weight * ss) / self.cov_normalize
+        self.m_ss[name] = self.m_ss[name] * cov_moving_weight / self.cov_normalize
+        self.m_ss[name] = self.m_ss[name] + (cov_weight * ss) / self.cov_normalize
         return
 
     @staticmethod
@@ -157,7 +158,7 @@ class KFAC_Actor():
                 return tf.expand_dims(tf.expand_dims(a, 1), 1)
             elif 'sigma' in name:
                 return tf.expand_dims(tf.expand_dims(a, 1), 1)
-        if 'w_' in name:
+        if 'wf' in name:
             return tf.squeeze(a)
         return a  # stream, pi
 

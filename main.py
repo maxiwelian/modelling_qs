@@ -14,7 +14,7 @@ def main(config):
     n_gpus = config['n_gpus']
 
     # create the actors on the available gpus
-    models = [Network.remote(config) for _ in range(n_gpus)]
+    models = [Network.remote(config, _) for _ in range(n_gpus)]
     n_params, n_layers, trainable_shapes, layers = ray.get(models[0].get_model_details.remote())
 
     # initialize the kfac class
@@ -164,6 +164,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
 
+    # python main.py --seed -gpu 4 -o kfac -exp_dir garbage -pi 1000 -bi 100 -i 1000
     if args.half_model:
         args.n_samples = 1024
         args.nf_hidden_single = 128
