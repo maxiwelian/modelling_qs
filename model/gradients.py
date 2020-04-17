@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+def expand(tensor, shape):
+    return tf.reshape(tensor, (-1, *[1 for _ in shape[1:]]))
 
 def extract_grads(model, inp, e_loc_centered, n_samples):
     with tf.GradientTape() as tape:
@@ -40,22 +42,29 @@ class KFAC_Actor():
             self.m_ss[name] = tf.ones(shape_s)
 
         self.should_center = True  # this is true by default as it is correct, though we can change
+        self.iteration = 0
 
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
         with tf.GradientTape(True) as tape:
             out, activations, pre_activations, _, _ = model(inp)
             loss = out * e_loc_centered
+            s_w = pre_activations[-1]
+            pre_activations = [pa for pa in pre_activations[:-1]]
 
         grads = tape.gradient(loss, model.trainable_weights)
         grads = [grad / n_samples for grad in grads]
-
         n_s, n_a = grads[-1].shape[:2]
         grads[-1] = tf.reshape(grads[-1], (n_a, n_s))
 
-        s_w = pre_activations[-1]
-        pre_activations = [pa for pa in pre_activations[:-1]]
         sensitivities = tape.gradient(out, pre_activations)
         sensitivities.append(s_w)
+
+        # loss_sensitivities = tape.gradient(loss, pre_activations)
+        # loss_sensitivities.append(s_w * expand(e_loc_centered, s_w.shape))
+        # for a, s, g, ls, name in zip(activations, sensitivities, grads, loss_sensitivities, self.layers):
+        #     als = a
+        #     conv_factor = float(name[-3])
+        #     self.compute_comparison_gradient(als, ls, name, n_samples, g, conv_factor)
 
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = float(name[-3])
@@ -79,17 +88,37 @@ class KFAC_Actor():
 
             # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
 
-            self.update_m_aa_and_m_ss(aa, ss, name)
+            self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
+        self.iteration += 1
         return grads, self.m_aa, self.m_ss
 
-    def update_m_aa_and_m_ss(self, aa, ss, name):
-        # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
-        self.m_aa[name] *= self.cov_moving_weight / self.cov_normalize  # multiply
-        self.m_aa[name] += (self.cov_weight * aa) / self.cov_normalize  # add
+    def compute_comparison_gradient(self, als, ls, name, n_samples, g, conv_factor):
+        als = self.absorb_j(als, name)
+        ls = self.absorb_j(ls, name)
+        als = self.append_bias_if_needed(als, name)
+        als = self.expand_dim_a(als, name)
+        ls = self.expand_dim_s(ls, name)
+        outer_product = tf.linalg.matmul(tf.expand_dims(als, -1), tf.expand_dims(ls, -2))
+        outer_product = tf.reduce_sum(outer_product, axis=0)
+        g_new = outer_product / n_samples
+        print(g.shape, g_new.shape)
+        assert g.shape == g_new.shape
+        validate = tf.reduce_mean(tf.abs(g - g_new))
+        print(validate)
 
-        self.m_ss[name] *= self.cov_moving_weight / self.cov_normalize
-        self.m_ss[name] += (self.cov_weight * ss) / self.cov_normalize
+    def update_m_aa_and_m_ss(self, aa, ss, name, iteration):
+        # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
+        # cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
+        # cov_weight = 1 - cov_moving_weight
+        cov_moving_weight = self.cov_moving_weight
+        cov_weight = self.cov_weight
+
+        self.m_aa[name] *= cov_moving_weight / self.cov_normalize  # multiply
+        self.m_aa[name] += (cov_weight * aa) / self.cov_normalize  # add
+
+        self.m_ss[name] *= cov_moving_weight / self.cov_normalize
+        self.m_ss[name] += (cov_weight * ss) / self.cov_normalize
         return
 
     @staticmethod
@@ -129,7 +158,7 @@ class KFAC_Actor():
                 return tf.expand_dims(tf.expand_dims(a, 1), 1)
         if 'w_' in name:
             return tf.squeeze(a)
-        return a  # stream, pi, w
+        return a  # stream, pi
 
     def extract_m_xx_shapes(self, model):
         _, activations, pre_activations, _, _ = model(tf.random.uniform((1, self.n_spins, 3)))
@@ -173,7 +202,7 @@ class KFAC():
         self.norm_constraint = norm_constraint
 
         if damping_method == 'tikhonov':
-            self.damp = lambda x, y, z: (x, y)  # do nothing
+            self.damp = lambda x, y, z, h, i: (x, y)  # do nothing
             self.decomp_damping = lambda conv_factor: self.damping / conv_factor
 
         elif damping_method == 'ft':  # factored tikhonov
@@ -189,7 +218,7 @@ class KFAC():
             maa = m_aa[layer]
             mss = m_ss[layer]
 
-            maa, mss = self.damp(maa, mss, conv_factor)
+            maa, mss = self.damp(maa, mss, conv_factor, layer, iteration)
 
             vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
 
@@ -208,14 +237,12 @@ class KFAC():
         sq_fisher_norm = 0
         for ng, g in zip(nat_grads, grads):
             sq_fisher_norm += tf.reduce_sum(ng * g)
-        eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (lr**2 * sq_fisher_norm)))
-        return eta
+        self.eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (lr**2 * sq_fisher_norm)))
+        return self.eta
 
     def compute_eig_decomp(self, maa, mss):
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
-
         with tf.device("/cpu:0"):
-
             vals_a, vecs_a = tf.linalg.eigh(maa)
             vals_s, vecs_s = tf.linalg.eigh(mss)
 
@@ -244,25 +271,39 @@ class KFAC():
         trace = tf.linalg.trace(m_xx)
         return tf.maximum(1e-10 * tf.ones_like(trace), trace)
 
-    def ft_damp(self, m_aa, m_ss, conv_factor):  # factored tikhonov damping
+    def ft_damp(self, m_aa, m_ss, conv_factor, name, iteration):  # factored tikhonov damping
         dim_a = m_aa.shape[-1]
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
         tr_a = self.get_tr_norm(m_aa)
         tr_s = self.get_tr_norm(m_ss)
-        # tr_a = tf.linalg.trace(m_aa)
-        # tr_s = tf.linalg.trace(m_ss)
 
         pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+
+        tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
+        # tf.debugging.check_numerics(pi, 'pi')
 
         eye_a = tf.eye(dim_a, batch_shape=batch_shape)
         eye_s = tf.eye(dim_s, batch_shape=batch_shape)
 
-        m_aa += eye_a * tf.sqrt(pi * self.damping / conv_factor)
-        m_ss += eye_s * tf.sqrt(self.damping / (pi * conv_factor))
+        eps = 1e-8
+        m_aa_damping = tf.sqrt(pi * self.damping / conv_factor)
+        # m_aa_damping = tf.maximum(eps * tf.ones_like(m_aa_damping), m_aa_damping)
 
+        m_ss_damping = tf.sqrt(self.damping / (pi * conv_factor))
+        # m_ss_damping = tf.maximum(eps * tf.ones_like(m_ss_damping), m_ss_damping)
+
+        # tf.debugging.check_numerics(m_aa_damping, 'm_aa_damping')
+        # tf.debugging.check_numerics(m_ss_damping, 'm_ss_damping')
+
+        m_aa += eye_a * m_aa_damping
+        m_ss += eye_s * m_ss_damping
+
+        # tf.debugging.check_numerics(m_aa, 'm_aa')
+        # tf.debugging.check_numerics(m_ss, 'm_ss')
         return m_aa, m_ss
+
 
 
 

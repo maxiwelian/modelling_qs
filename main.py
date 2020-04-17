@@ -39,8 +39,9 @@ def main(config):
                 for iteration in range(config['n_pretrain_iterations']):
                     new_grads = get_pretrain_grads(models)
                     update_weights_pretrain(models, new_grads)
+                    [model.sample.remote() for model in models]
 
-                    if iteration % 50 == 0:
+                    if iteration % 100 == 0:
                         _, e_mean, _ = get_energy(models)
                         tf.summary.scalar('pretrain/energy', e_mean, iteration)
                         tf.summary.flush()
@@ -65,6 +66,18 @@ def main(config):
 
             else:
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
+
+                weights = ray.get(models[0].get_weights.remote())
+                for name, w in zip(layers, weights):
+                    ma = tf.reduce_mean(m_aa[name])
+                    ms = tf.reduce_mean(m_ss[name])
+
+                    tf.summary.scalar('m_xx/m_aa_%s' % name, ma, iteration)
+                    tf.summary.scalar('m_xx/m_ss_%s' % name, ms, iteration)
+
+                    w = tf.reduce_mean(w)
+                    tf.summary.scalar('weights/%s' % name, w, iteration)
+
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
                 step_forward(models, updates)
 
@@ -72,7 +85,9 @@ def main(config):
                 log(models, updates, log_config, iteration)
     return
 
+
 if __name__ == '__main__':
+
     import ray
     ray.init()
 
@@ -114,7 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--decay', default=0.0001, type=float)
 
     # kfac
-    parser.add_argument('-dm', '--damping_method', default='ft', type=str)
+    parser.add_argument('-dm', '--damping_method', help='ft or tikhonov', default='ft', type=str)
     parser.add_argument('-id', '--initial_damping', default=0.001, type=float)
     parser.add_argument('-nc', '--norm_constraint', default=0.001, type=float)
     parser.add_argument('-ca', '--conv_approx', default='mg', type=str)
@@ -133,6 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--nf_hidden_single', default=256, type=int)
     parser.add_argument('-p', '--nf_hidden_pairwise', default=32, type=int)
     parser.add_argument('-k', '--n_determinants', default=16, type=int)
+    parser.add_argument('-ei', '--env_init', default=0.001, type=float)
 
     # paths
     parser.add_argument('-l', '--load_iteration', default=0, type=int)

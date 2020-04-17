@@ -23,6 +23,7 @@ class Network(object):
             np.random.seed(7)
 
         self.n_samples = config['n_samples_actor']
+        config['n_samples'] = self.n_samples
         self.r_atoms = config['r_atoms']
         self.z_atoms = config['z_atoms']
         self.model_path = config['model_path']
@@ -40,6 +41,7 @@ class Network(object):
                                          tf.eye(3) * config['sampling_init'],
                                          tf.zeros(3),
                                          tf.eye(3) * config['sampling_steps'])
+
         model_sampler_params = filter_dict(config, MetropolisHasting)
         self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, **model_sampler_params)
         self.samples = self.model_sampler.initialize_samples()
@@ -122,6 +124,9 @@ class Network(object):
 
     def get_samples(self):
         return self.samples.numpy()
+
+    def sample(self):
+        self.samples, _, _ = self.model_sampler.sample(self.samples)
 
     # optimizers
     def update_weights(self, grads):

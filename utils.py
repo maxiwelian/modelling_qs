@@ -226,6 +226,17 @@ def log(models, updates, log_config, iteration):
     log_iteration(printer, iteration)
     tf.summary.flush()
 
+    # weights = ray.get(models[0].get_weights.remote())
+    # for name, w in zip(layers, weights):
+    #     ma = tf.reduce_mean(m_aa[name])
+    #     ms = tf.reduce_mean(m_ss[name])
+    #
+    #     tf.summary.scalar('m_xx/m_aa_%s' % name, ma, iteration)
+    #     tf.summary.scalar('m_xx/m_ss_%s' % name, ms, iteration)
+    #
+    #     w = tf.reduce_mean(w)
+    #     tf.summary.scalar('weights/%s' % name, w, iteration)
+
 
     return
 

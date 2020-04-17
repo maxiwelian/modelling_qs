@@ -11,6 +11,10 @@ def initializer(in_dim, weight_shape, out_dim):
     weights = tf.random.uniform(weight_shape, minval=minval, maxval=maxval)
     return weights
 
+def env_initializer(in_dim, weight_shape, out_dim, env_init):
+    weights = tf.random.uniform(weight_shape, minval=-env_init, maxval=env_init)
+    return weights
+
 
 class fermiNet(tk.Model):
     """
@@ -24,7 +28,8 @@ class fermiNet(tk.Model):
                  n_spin_down,
                  nf_hidden_single,
                  nf_hidden_pairwise,
-                 n_determinants):
+                 n_determinants,
+                 env_init):
 
         super(fermiNet, self).__init__()
 
@@ -66,7 +71,7 @@ class fermiNet(tk.Model):
         self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, 3)
 
         self.envelopes = \
-            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants)
+            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants, env_init)
 
         # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1))
         self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/16., name='w_1')  # name_cf (conv factor)
@@ -123,7 +128,7 @@ class fermiNet(tk.Model):
 
 
 class envelopesLayer(tk.Model):
-    def __init__(self, n_spin_up, n_spin_down, n_atoms, nf_single, n_determinants):
+    def __init__(self, n_spin_up, n_spin_down, n_atoms, nf_single, n_determinants, env_init):
         super(envelopesLayer, self).__init__()
         # --- variables
         self.n_spin_up = n_spin_up
@@ -132,8 +137,8 @@ class envelopesLayer(tk.Model):
         self.n_atoms = n_atoms
 
         # --- envelopes
-        self.spin_up_envelope = envelopeLayer(n_spin_up, n_atoms, nf_single, n_determinants, name='up')
-        self.spin_down_envelope = envelopeLayer(n_spin_down, n_atoms, nf_single, n_determinants, name='down')
+        self.spin_up_envelope = envelopeLayer(n_spin_up, n_atoms, nf_single, n_determinants, env_init, name='up')
+        self.spin_down_envelope = envelopeLayer(n_spin_down, n_atoms, nf_single, n_determinants, env_init, name='down')
 
     # @tf.function
     def call(self, inputs, ae_vectors, n_samples):
@@ -151,7 +156,7 @@ class envelopesLayer(tk.Model):
 
 
 class envelopeLayer(tk.Model):
-    def __init__(self, n_spins, n_atoms, nf_single, n_determinants, name=''):
+    def __init__(self, n_spins, n_atoms, nf_single, n_determinants, env_init, name=''):
         super(envelopeLayer, self).__init__()
         # k: n_determinants, i: n_electrons, f: n_features
         w = initializer(nf_single, (n_determinants, n_spins, nf_single, 1), 1)
@@ -161,10 +166,10 @@ class envelopeLayer(tk.Model):
         self.w = tf.Variable(w,
                              name='env_%s_w_%i' % (name, n_spins))
 
-        self.Sigma = tf.Variable(initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3),
+        self.Sigma = tf.Variable(env_initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3, 0.5),
                                  name='env_%s_sigma_%i' % (name, n_spins))
 
-        self.Pi = tf.Variable(initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1),
+        self.Pi = tf.Variable(env_initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1, 1. / n_atoms),
                               name='env_%s_pi_%i' % (name, n_spins))
 
     # @tf.function
