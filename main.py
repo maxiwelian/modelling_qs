@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     from model.gradients import KFAC
 
-    from utils import *
+    from utils.utils import *
     from systems import systems
 
     parser = argparse.ArgumentParser()

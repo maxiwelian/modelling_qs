@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from utils import save_pk, compute_rolling_mean, compute_rolling_std
+from utils.utils import save_pk, compute_rolling_mean, compute_rolling_std
 from actor import burn, get_energy
 
 def compute_energy(models, config):

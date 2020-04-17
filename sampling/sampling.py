@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
-from utils import tofloat
+from utils.utils import tofloat
 import numpy as np
 
 class SampleDistribution:

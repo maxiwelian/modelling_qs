@@ -1,6 +1,5 @@
 import ray
 import tensorflow as tf
-import tensorflow_probability as tfp
 from energy.energy_utils import clip
 
 
@@ -16,7 +15,7 @@ class Network(object):
         from energy.energy import compute_local_energy
         from model.gradients import extract_grads, KFAC_Actor
         from pretraining.pretraining import Pretrainer
-        from utils import load_model, load_sample, filter_dict, tofloat
+        from utils.utils import load_model, load_sample, filter_dict, tofloat
 
         if config['seed']:
             tf.random.set_seed(7)

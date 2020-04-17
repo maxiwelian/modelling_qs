@@ -1,8 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as tk
-import tensorflow.keras.layers as layers
 import numpy as np
-from utils import tofloat
+from utils.utils import tofloat
 
 
 def initializer(in_dim, weight_shape, out_dim):
@@ -74,7 +73,8 @@ class fermiNet(tk.Model):
             envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants, env_init)
 
         # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1))
-        self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/16., name='w_1')  # name_cf (conv factor)
+        # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')  # name_cf (conv factor)
+        self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init), name='w_1')
         # self.epoch = 1
 
     # @tf.function  # phase = 0, 1, 2 // test, supervised, unsupervised
@@ -163,13 +163,12 @@ class envelopeLayer(tk.Model):
         b = tf.zeros((n_determinants, n_spins, 1, 1))
         w = tf.concat((w, b), axis=2)
 
-        self.w = tf.Variable(w,
-                             name='env_%s_w_%i' % (name, n_spins))
+        self.w = tf.Variable(w, name='env_%s_w_%i' % (name, n_spins))
 
-        self.Sigma = tf.Variable(env_initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3, 0.5),
+        self.Sigma = tf.Variable(env_initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3, env_init),
                                  name='env_%s_sigma_%i' % (name, n_spins))
 
-        self.Pi = tf.Variable(env_initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1, 1. / n_atoms),
+        self.Pi = tf.Variable(env_initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1, env_init),
                               name='env_%s_pi_%i' % (name, n_spins))
 
     # @tf.function
