@@ -178,8 +178,8 @@ class KFAC_Actor():
             a = self.expand_dim_a(a, name)
             s = self.expand_dim_s(s, name)
 
-            aa = self.outer_product_and_sum(a)
-            ss = self.outer_product_and_sum(s)
+            aa = self.outer_product_and_sum(a, name)
+            ss = self.outer_product_and_sum(s, name)
 
             a_shapes.append(aa.shape)
             s_shapes.append(ss.shape)

@@ -7,7 +7,7 @@ from time import time
 import re
 from tensorflow.python.client import device_lib
 import shutil
-from actor import get_info
+from actor_proxy import get_info
 import ray
 
 def count_gpus():

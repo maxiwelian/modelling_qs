@@ -13,6 +13,7 @@ class Network(object):
         from model.gradients import extract_grads, KFAC_Actor
         from pretraining.pretraining import Pretrainer
         from utils.utils import load_model, load_sample, filter_dict, tofloat
+        from actor_proxy import clip
 
         if config['seed']:
             tf.random.set_seed(7)
@@ -66,7 +67,7 @@ class Network(object):
         # store references to avoid reimport
         self._extract_grads = extract_grads
         self._tofloat = tofloat
-
+        self._tf = tf
         self._compute_local_energy, self._clip = compute_local_energy, clip
         self._time = time
         self._load_model = load_model
