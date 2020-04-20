@@ -164,7 +164,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
 
-    # python main.py --seed -gpu 4 -o kfac -exp_dir garbage -pi 1000 -bi 100 -i 1000
+    # python main.py -gpu 4 -o kfac -exp first_run -pi 1000 -bi 100 -i 1000 -dm tikhonov
     if args.half_model:
         args.n_samples = 1024
         args.nf_hidden_single = 128

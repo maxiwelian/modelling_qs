@@ -78,7 +78,7 @@ class fermiNet(tk.Model):
         # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1, _))
         # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')
         self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init / n_determinants),
-                                        name='%i_wf_1' % gpu_id)
+                                        name='wf_1')
         # self.epoch = 1
 
     # @tf.function  # phase = 0, 1, 2 // test, supervised, unsupervised
@@ -167,13 +167,13 @@ class envelopeLayer(tk.Model):
         b = tf.zeros((n_determinants, n_spins, 1, 1))
         w = tf.concat((w, b), axis=2)
 
-        self.w = tf.Variable(w, name='%i_env_%s_w_%i' % (gpu_id, name, n_spins))
+        self.w = tf.Variable(w, name='env_%s_w_%i' % (name, n_spins))
 
         self.Sigma = tf.Variable(env_initializer(3, (n_determinants, n_spins, n_atoms, 3, 3), 3, env_init),
-                                 name='%i_env_%s_sigma_%i' % (gpu_id, name, n_spins))
+                                 name='env_%s_sigma_%i' % (name, n_spins))
 
         self.Pi = tf.Variable(env_initializer(n_atoms, (n_determinants, n_spins, n_atoms, 1), 1, env_init),
-                              name='%i_env_%s_pi_%i' % (gpu_id, name, n_spins))
+                              name='env_%s_pi_%i' % (name, n_spins))
 
     # @tf.function
     def call(self, inputs, ae_vectors, n_samples, n_spins, n_k, n_atoms):
@@ -212,7 +212,7 @@ class Stream(tk.Model):
         b = tf.zeros((1, out_dim))
         # b = tf.random.normal((1, out_dim), stddev=std, dtype=dtype)
         w = tf.concat((w, b), axis=0)
-        self.w = tf.Variable(w, name='%i_stream%i_%i' % (gpu_id, node, n_spins))
+        self.w = tf.Variable(w, name='stream%i_%i' % (node, n_spins))
 
     def call(self, inputs, n_samples, n_streams):
         inputs_w_bias = tf.concat((inputs, tf.ones((n_samples, n_streams, 1))), axis=-1)

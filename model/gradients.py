@@ -83,7 +83,6 @@ class KFAC_Actor():
 
             normalize = self.compute_normalization(n_samples, conv_factor)  # this is dependent on the conv approx
 
-            print(a.shape)
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
 
@@ -116,11 +115,11 @@ class KFAC_Actor():
         cov_moving_weight = self.cov_moving_weight
         cov_weight = self.cov_weight
         # tensorflow and or ray has a weird thing about inplace operations??
-        self.m_aa[name] = self.m_aa[name] * cov_moving_weight / self.cov_normalize  # multiply
-        self.m_aa[name] = self.m_aa[name] + (cov_weight * aa) / self.cov_normalize  # add
+        self.m_aa[name] *= cov_moving_weight / self.cov_normalize  # multiply
+        self.m_aa[name] += (cov_weight * aa) / self.cov_normalize  # add
 
-        self.m_ss[name] = self.m_ss[name] * cov_moving_weight / self.cov_normalize
-        self.m_ss[name] = self.m_ss[name] + (cov_weight * ss) / self.cov_normalize
+        self.m_ss[name] *= cov_moving_weight / self.cov_normalize
+        self.m_ss[name] += (cov_weight * ss) / self.cov_normalize
         return
 
     @staticmethod
@@ -207,31 +206,27 @@ class KFAC():
         self.damping = initial_damping
         self.norm_constraint = norm_constraint
 
+        if conv_approx == 'ba':
+            self.compute_conv_factor = lambda x: x**2
+        else:
+            self.compute_conv_factor = lambda x: x
+
         if damping_method == 'tikhonov':
             self.damp = lambda x, y, z, h, i: (x, y)  # do nothing
-            if conv_approx == 'ba':
-                self.decomp_damping = lambda conv_factor: self.damping / conv_factor**2
-                self.nat_grad_conv_norm = lambda conv_factor: conv_factor**2
-            else:  # mg
-                self.decomp_damping = lambda conv_factor: self.damping / conv_factor
-                self.nat_grad_conv_norm = lambda conv_factor: conv_factor
-
+            self.decomp_damping = lambda conv_factor: self.damping / conv_factor
         elif damping_method == 'ft':  # factored tikhonov
             self.damp = self.ft_damp
             self.decomp_damping = lambda conv_factor: 0.  # add zero in the inversion as damping is done before
 
-        if conv_approx == 'ba':
-            self.nat_grad_conv_norm = lambda conv_factor: conv_factor ** 2
-        else:  # mg
-            self.nat_grad_conv_norm = lambda conv_factor: conv_factor
-
+        self.nat_grad_conv_norm = lambda conv_factor: conv_factor
 
     def compute_updates(self, grads, m_aa, m_ss, iteration):
         lr = self.compute_lr(iteration)
 
         nat_grads = []
         for g, layer in zip(grads, self.layers):
-            conv_factor = float(layer[-3])
+            conv_factor = self.compute_conv_factor(float(layer[-3]))
+
             maa = m_aa[layer]
             mss = m_ss[layer]
 
@@ -241,9 +236,8 @@ class KFAC():
 
             decomp_damping = self.decomp_damping(conv_factor)  # calls depending on the damping method
 
-            normalize = self.nat_grad_conv_norm(conv_factor)
             # T F + \lambda I = T (F + \lambda I / (T))
-            ng = self.compute_nat_grads(vals_a, vecs_a, vals_s, vecs_s, g, decomp_damping) / normalize
+            ng = self.compute_nat_grads(vals_a, vecs_a, vals_s, vecs_s, g, decomp_damping) / conv_factor
 
             nat_grads.append(ng)
 
