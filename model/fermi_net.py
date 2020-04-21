@@ -239,9 +239,6 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
     ee_vectors = re1 - re2
 
-    # r_electrons_1 = tf.expand_dims(r_electrons, 2)
-    # r_electrons_2 = tf.tile(tf.expand_dims(r_electrons, 2), (1, 1, n_electrons, 1))
-    # ee_vectors = r_electrons_1 - tf.transpose(r_electrons_2, perm=(0, 2, 1, 3))  # * -1.
 
     mask = tf.eye(n_electrons, dtype=tf.bool)
     mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
@@ -250,7 +247,6 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2 - n_electrons, 3))
     ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
     pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
-
 
     return single_inputs, pairwise_inputs
 
@@ -296,10 +292,10 @@ class Mixer(tk.Model):
         replace = tf.zeros_like(sum_pairwise)
         # up
         sum_pairwise_up = tf.where(self.pairwise_spin_up_mask, sum_pairwise, replace)
-        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / (self.n_spin_up-1.)
+        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / self.n_spin_up
         # down
         sum_pairwise_down = tf.where(self.pairwise_spin_down_mask, sum_pairwise, replace)
-        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / (self.n_spin_down-1.)
+        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / self.n_spin_down
 
         features = tf.concat((single, sum_spin_up, sum_spin_down, sum_pairwise_up, sum_pairwise_down), 2)
         return features

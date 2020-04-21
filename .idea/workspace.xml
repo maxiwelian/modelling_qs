@@ -2,10 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ca7a4457-258c-4d89-bf22-5d4634e4ff7d" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/actor_proxy.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/actor.py" beforeDir="false" afterPath="$PROJECT_DIR$/actor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model/gradients.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/gradients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model/fermi_net.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/fermi_net.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,28 +45,7 @@
       <recent name="$PROJECT_DIR$/sampling" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.plot_median_opt">
-    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
-      <module name="modelling_qs" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
+  <component name="RunManager" selected="Python.plot_median_opt (1)">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -110,6 +88,48 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="pairwise" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="modelling_qs" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/debbug/electron_positions" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/debbug/electron_positions/pairwise.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="plot_median_opt (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="modelling_qs" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiments/narrativ/env_init" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiments/narrativ/env_init/plot_median_opt.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="plot_median_opt" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -131,56 +151,17 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration default="true" type="Tox" factoryName="Tox">
-      <module name="modelling_qs" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Doctests">
-      <module name="modelling_qs" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="CLASS_NAME" value="" />
-      <option name="METHOD_NAME" value="" />
-      <option name="FOLDER_NAME" value="" />
-      <option name="TEST_TYPE" value="TEST_SCRIPT" />
-      <option name="PATTERN" value="" />
-      <option name="USE_PATTERN" value="false" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Unittests">
-      <module name="modelling_qs" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method v="2" />
-    </configuration>
     <list>
       <item itemvalue="Python.main" />
       <item itemvalue="Python.main_max" />
       <item itemvalue="Python.plot_median_opt" />
+      <item itemvalue="Python.plot_median_opt (1)" />
+      <item itemvalue="Python.pairwise" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.plot_median_opt (1)" />
+        <item itemvalue="Python.pairwise" />
         <item itemvalue="Python.plot_median_opt" />
         <item itemvalue="Python.main_max" />
         <item itemvalue="Python.main" />
@@ -205,37 +186,48 @@
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="451" y="210" key="#com.intellij.execution.impl.EditConfigurationsDialog/67.27.1853.1053@67.27.1853.1053" timestamp="1586990586080" />
-    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl" timestamp="1587156560530">
+    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl" timestamp="1587494267284">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1587156560530" />
-    <state width="1830" height="216" key="GridCell.Tab.0.bottom" timestamp="1587139419218">
+    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1587494267284" />
+    <state width="1830" height="395" key="GridCell.Tab.0.bottom" timestamp="1587494269933">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="216" key="GridCell.Tab.0.bottom/67.27.1853.1053@67.27.1853.1053" timestamp="1587139419218" />
-    <state width="1830" height="216" key="GridCell.Tab.0.center" timestamp="1587139419218">
+    <state width="1830" height="395" key="GridCell.Tab.0.bottom/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269933" />
+    <state width="1830" height="395" key="GridCell.Tab.0.center" timestamp="1587494269931">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="216" key="GridCell.Tab.0.center/67.27.1853.1053@67.27.1853.1053" timestamp="1587139419218" />
-    <state width="1830" height="216" key="GridCell.Tab.0.left" timestamp="1587139419218">
+    <state width="1830" height="395" key="GridCell.Tab.0.center/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269931" />
+    <state width="1830" height="395" key="GridCell.Tab.0.left" timestamp="1587494269930">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="216" key="GridCell.Tab.0.left/67.27.1853.1053@67.27.1853.1053" timestamp="1587139419218" />
-    <state width="1830" height="216" key="GridCell.Tab.0.right" timestamp="1587139419218">
+    <state width="1830" height="395" key="GridCell.Tab.0.left/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269930" />
+    <state width="1830" height="395" key="GridCell.Tab.0.right" timestamp="1587494269931">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="216" key="GridCell.Tab.0.right/67.27.1853.1053@67.27.1853.1053" timestamp="1587139419218" />
+    <state width="1830" height="395" key="GridCell.Tab.0.right/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269931" />
     <state x="482" y="187" key="SettingsEditor" timestamp="1587140824393">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="482" y="187" key="SettingsEditor/67.27.1853.1053@67.27.1853.1053" timestamp="1587140824393" />
-    <state x="684" y="293" width="618" height="518" key="find.popup" timestamp="1586992177439">
+    <state x="684" y="293" width="618" height="518" key="find.popup" timestamp="1587163305193">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="684" y="293" width="618" height="518" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1586992177439" />
+    <state x="684" y="293" width="618" height="518" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1587163305193" />
     <state x="656" y="257" width="672" height="678" key="search.everywhere.popup" timestamp="1586988341778">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="656" y="257" width="672" height="678" key="search.everywhere.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1586988341778" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/model/fermi_net.py</url>
+          <line>242</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

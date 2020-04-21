@@ -81,9 +81,7 @@ class Network(object):
     # gradients & energy
     def get_energy(self):
         self.samples, self.amps, self.acceptance = self.model_sampler.sample(self.samples)
-        self._tf.debugging.check_numerics(self.samples, 'samples')
         self.e_loc = self._compute_local_energy(self.r_atoms, self.samples, self.z_atoms, self.model)
-        self._tf.debugging.check_numerics(self.e_loc, 'e_loc')
         return self.e_loc
 
     def get_pretrain_grads(self):
