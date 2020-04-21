@@ -7,6 +7,10 @@ class Network(object):
         import numpy as np
         from time import time
 
+        if config['seed']:
+            tf.random.set_seed(7)
+            np.random.seed(7)
+
         from sampling.sampling import MetropolisHasting, RandomWalker
         from model.fermi_net import fermiNet
         from energy.energy import compute_local_energy
@@ -14,10 +18,6 @@ class Network(object):
         from pretraining.pretraining import Pretrainer
         from utils.utils import load_model, load_sample, filter_dict, tofloat
         from actor_proxy import clip
-
-        if config['seed']:
-            tf.random.set_seed(7)
-            np.random.seed(7)
 
         self.n_samples = config['n_samples_actor']
         config['n_samples'] = self.n_samples
@@ -58,7 +58,7 @@ class Network(object):
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=config['lr0'])
             print('Using ADAM optimizer')
         elif config['opt'] == 'kfac':
-            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'], decay=config['decay'])
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'] / 10, decay=config['decay'])
             kfac_config = filter_dict(config, KFAC_Actor)
             self.kfac = KFAC_Actor(self.model, **kfac_config)
             print('Using kfac optimizer')
@@ -81,7 +81,9 @@ class Network(object):
     # gradients & energy
     def get_energy(self):
         self.samples, self.amps, self.acceptance = self.model_sampler.sample(self.samples)
+        self._tf.debugging.check_numerics(self.samples, 'samples')
         self.e_loc = self._compute_local_energy(self.r_atoms, self.samples, self.z_atoms, self.model)
+        self._tf.debugging.check_numerics(self.e_loc, 'e_loc')
         return self.e_loc
 
     def get_pretrain_grads(self):

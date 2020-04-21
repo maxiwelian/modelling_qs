@@ -178,15 +178,49 @@ def compute_rolling_std(current_std, current_mean, batch, new_std, new_mean):
     return tf.sqrt(rolling_var).numpy()
 
 
-def log(models, updates, log_config, iteration):
+def log(models, updates, log_config, iteration, e_locs):
     printer = {}
     amplitudes, acceptance, samples, e_loc = get_info(models)
+
+    # r_atoms: (n_atoms, 3)
+    # r_electrons: (n_samples, n_electrons, 3)
+    # ae_vectors: (n_samples, n_electrons, n_atoms, 3)
+    ae_distances = tf.norm(ae_vectors, axis=-1, keepdims=True)
+    single_inputs = tf.concat((ae_vectors, ae_distances), axis=-1)
+    single_inputs = tf.reshape(single_inputs, (-1, n_electrons, 4 * n_atoms))
+
+    re1 = tf.expand_dims(r_electrons, 2)
+    re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
+    ee_vectors = re1 - re2
+
+    # r_electrons_1 = tf.expand_dims(r_electrons, 2)
+    # r_electrons_2 = tf.tile(tf.expand_dims(r_electrons, 2), (1, 1, n_electrons, 1))
+    # ee_vectors = r_electrons_1 - tf.transpose(r_electrons_2, perm=(0, 2, 1, 3))  # * -1.
+
+    mask = tf.eye(n_electrons, dtype=tf.bool)
+    mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
+
+    ee_vectors = tf.boolean_mask(ee_vectors, mask)
+    ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons ** 2 - n_electrons, 3))
+    ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
+    pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
+    print('ee', tf.reduce_mean(ee_distances))
+    print('ae', tf.reduce_mean(ae_distances))
 
     # energy
     e_loc_mean_shifted = tf.abs(tf.reduce_mean(e_loc) - log_config['e_min'])
     e_loc_mean = tf.reduce_mean(e_loc)
     # e_loc_mean = tf.reduce_mean(e_loc)
     e_loc_std = tf.math.reduce_std(e_loc)
+    e_locs.append(e_loc_mean)
+
+    if iteration < 10:
+        median = e_locs[iteration]
+    else:
+        last_iterations = iteration // 10
+        median = np.median(e_locs[-last_iterations:])
+
+    printer['energy/median_last10'] = [median, 8]
     printer['energy/e_loc_mean'] = [e_loc_mean_shifted, 7]
     printer['energy/e_loc_mean_negative'] = [e_loc_mean, 7]
     printer['energy/e_loc_std'] = [e_loc_std, 4]

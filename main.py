@@ -36,9 +36,10 @@ def main(config):
                 load_models(models, config['pretrained_model'])
 
             else:  # pretrain
-                # burn_pretrain(models, 10)
-                [model.burn_pretrain.remote() for model in models]
+                burn_pretrain(models, config['n_burn_in'])
+                burn(models, config['n_burn_in'])
 
+                iteration = 0
                 for iteration in range(config['n_pretrain_iterations']):
                     new_grads = get_pretrain_grads(models)
                     update_weights_pretrain(models, new_grads)
@@ -48,6 +49,8 @@ def main(config):
                         _, e_mean, _ = get_energy(models)
                         tf.summary.scalar('pretrain/energy', e_mean, iteration)
                         tf.summary.flush()
+                        if e_mean - config['e_min'] < 0.4:
+                            break
 
                     print('pretrain iteration %i...' % iteration)
 
@@ -59,6 +62,7 @@ def main(config):
             burn(models, config['n_burn_in'])  # burn in
 
         print('optimizing')
+        e_locs = []
         for iteration in range(n_iterations):
             if iteration < 2:
                 log_config['t0'] = time()
@@ -69,23 +73,11 @@ def main(config):
 
             else:
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
-
-                weights = ray.get(models[0].get_weights.remote())
-                for name, w in zip(layers, weights):
-                    ma = tf.reduce_mean(m_aa[name])
-                    ms = tf.reduce_mean(m_ss[name])
-
-                    tf.summary.scalar('m_xx/m_aa_%s' % name, ma, iteration)
-                    tf.summary.scalar('m_xx/m_ss_%s' % name, ms, iteration)
-
-                    w = tf.reduce_mean(w)
-                    tf.summary.scalar('weights/%s' % name, w, iteration)
-
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
                 step_forward(models, updates)
 
             if iteration % config['log_every'] == 0:
-                log(models, updates, log_config, iteration)
+                log(models, updates, log_config, iteration, e_locs)
     return
 
 
@@ -126,7 +118,7 @@ if __name__ == '__main__':
 
     # training
     parser.add_argument('-i', '--n_iterations', default=10000, type=int)
-    parser.add_argument('-o', '--opt', default='adam', type=str)
+    parser.add_argument('-o', '--opt', default='kfac', type=str)
     parser.add_argument('-lr', '--lr0', default=0.0001, type=float)
     parser.add_argument('-d', '--decay', default=0.0001, type=float)
 
@@ -164,7 +156,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
 
-    # python main.py -gpu 4 -o kfac -exp first_run -pi 1000 -bi 100 -i 1000 -dm tikhonov
+    # python main.py -gpu 4 -o kfac -exp first_run -pi 1000 -bi 100 -i 1000 -dm ft -exp_dir env_init
     if args.half_model:
         args.n_samples = 1024
         args.nf_hidden_single = 128

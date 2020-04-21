@@ -21,7 +21,7 @@ class KFAC_Actor():
 
         self.n_spins = n_spins
         self.cov_moving_weight = 0.95
-        self.cov_weight = 1.
+        self.cov_weight = 0.05
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':
@@ -110,10 +110,10 @@ class KFAC_Actor():
 
     # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
     def update_m_aa_and_m_ss(self, aa, ss, name, iteration):
-        # cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
-        # cov_weight = 1 - cov_moving_weight
-        cov_moving_weight = self.cov_moving_weight
-        cov_weight = self.cov_weight
+        cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
+        cov_weight = 1 - cov_moving_weight
+        # cov_moving_weight = self.cov_moving_weight
+        # cov_weight = self.cov_weight
         # tensorflow and or ray has a weird thing about inplace operations??
         self.m_aa[name] *= cov_moving_weight / self.cov_normalize  # multiply
         self.m_aa[name] += (cov_weight * aa) / self.cov_normalize  # add
@@ -220,6 +220,8 @@ class KFAC():
 
         self.nat_grad_conv_norm = lambda conv_factor: conv_factor
 
+        self.iteration = 0
+
     def compute_updates(self, grads, m_aa, m_ss, iteration):
         lr = self.compute_lr(iteration)
 
@@ -243,6 +245,7 @@ class KFAC():
 
         eta = self.compute_norm_constraint(nat_grads, grads, lr)
 
+        self.iteration += 1
         return [-1. * eta * lr * ng for ng in nat_grads]
 
     def compute_norm_constraint(self, nat_grads, grads, lr):
@@ -253,6 +256,10 @@ class KFAC():
         return self.eta
 
     def compute_eig_decomp(self, maa, mss):
+
+        tf.summary.scalar('maa/maa_mean', tf.reduce_mean(maa), self.iteration)
+        tf.summary.scalar('mss/mss_mean', tf.reduce_mean(mss), self.iteration)
+
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
         with tf.device("/cpu:0"):
             vals_a, vecs_a = tf.linalg.eigh(maa)
@@ -288,12 +295,14 @@ class KFAC():
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
-        tr_a = self.get_tr_norm(m_aa)
-        tr_s = self.get_tr_norm(m_ss)
+        # tr_a = self.get_tr_norm(m_aa)
+        # tr_s = self.get_tr_norm(m_ss)
 
-        pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+        # if 'stream' not in name:
+        pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
+        # pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
-        tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
+        # tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
         # tf.debugging.check_numerics(pi, 'pi')
 
         eye_a = tf.eye(dim_a, batch_shape=batch_shape)
@@ -308,6 +317,9 @@ class KFAC():
 
         # tf.debugging.check_numerics(m_aa_damping, 'm_aa_damping')
         # tf.debugging.check_numerics(m_ss_damping, 'm_ss_damping')
+        # print(pi.shape)
+        # print(tr_a.shape, m_aa.shape, m_aa_damping.shape, eye_a.shape)
+        # print(tr_s.shape, m_ss.shape, m_ss_damping.shape, eye_s.shape)
 
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping

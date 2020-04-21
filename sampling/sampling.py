@@ -66,16 +66,6 @@ class MetropolisHasting:
         self.ne_atoms = ne_atoms
         self.n_spin_up = n_spin_up
 
-    # def initialize_samples(self):
-    #     curr_sample = []
-    #     for ne, atom_position in zip(self.ne_atoms, self.atom_positions):
-    #         electron_positions = tf.random.normal((self.n_samples, ne, 3))
-    #         curr_sample.append(electron_positions)
-    #     curr_sample = tf.concat(curr_sample, )
-    #     curr_sample = self.distr.sample((self.n_samples, self.n_electrons))
-    #     curr_sample = tf.convert_to_tensor(curr_sample)
-    #     return curr_sample
-
     def initialize_samples(self):
         ups = []
         downs = []
@@ -109,7 +99,6 @@ class MetropolisHasting:
 
             # update sample
             alpha = new_prob / curr_prob
-            # tf.debugging.check_numerics(alpha, 'houston, we have a problem')
 
             mask = alpha > self.alpha_distr.sample(alpha.shape)
             stacked_mask = tf.tile(tf.reshape(mask, (-1, 1, 1)), (1, *new_sample.shape[1:]))
@@ -155,7 +144,7 @@ class MetropolisHasting:
         return curr_sample, curr_log_amp, acceptance_total / tofloat(self.correlation_length)
 
     @tf.function
-    def sample_mixed(self, curr_sample, floor=1e-8):
+    def sample_mixed(self, curr_sample, floor=1e-10):
 
         sams = tf.split(curr_sample, [self.n_samples//2, self.n_samples//2])
         curr_sample_model, curr_sample_hf = tf.squeeze(sams[0]), tf.squeeze(sams[1])

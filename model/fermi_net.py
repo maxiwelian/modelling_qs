@@ -14,9 +14,6 @@ def env_initializer(in_dim, weight_shape, out_dim, env_init):
     weights = tf.random.uniform(weight_shape, minval=-env_init, maxval=env_init)
     return weights
 
-env_initializer = initializer
-
-
 class fermiNet(tk.Model):
     """
     fermi net, baby
@@ -238,17 +235,23 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     single_inputs = tf.concat((ae_vectors, ae_distances), axis=-1)
     single_inputs = tf.reshape(single_inputs, (-1, n_electrons, 4*n_atoms))
 
-    r_electrons_1 = tf.expand_dims(r_electrons, 2)
-    r_electrons_2 = tf.tile(tf.expand_dims(r_electrons, 2), (1, 1, n_electrons, 1))
-    ee_vectors = r_electrons_1 - tf.transpose(r_electrons_2, perm=(0, 2, 1, 3))  # * -1.
+    re1 = tf.expand_dims(r_electrons, 2)
+    re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
+    ee_vectors = re1 - re2
+
+    # r_electrons_1 = tf.expand_dims(r_electrons, 2)
+    # r_electrons_2 = tf.tile(tf.expand_dims(r_electrons, 2), (1, 1, n_electrons, 1))
+    # ee_vectors = r_electrons_1 - tf.transpose(r_electrons_2, perm=(0, 2, 1, 3))  # * -1.
 
     mask = tf.eye(n_electrons, dtype=tf.bool)
     mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
 
     ee_vectors = tf.boolean_mask(ee_vectors, mask)
-    ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons ** 2-n_electrons, 3))
+    ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2 - n_electrons, 3))
     ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
     pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
+
+
     return single_inputs, pairwise_inputs
 
 
