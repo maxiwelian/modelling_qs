@@ -106,7 +106,7 @@ def get_info(models):
     info = ray.get([model.get_info.remote() for model in models])
     amplitudes = [lst[0] for lst in info]
     acceptance = tf.reduce_mean([lst[1] for lst in info])
-    samples = [lst[2] for lst in info]
+    samples = tf.concat([lst[2] for lst in info], axis=0)
     e_loc = tf.concat([lst[3] for lst in info], axis=0)
     return amplitudes, acceptance, samples, e_loc
 

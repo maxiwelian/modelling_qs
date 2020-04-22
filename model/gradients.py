@@ -23,12 +23,12 @@ class KFAC_Actor():
 
         self.n_spins = n_spins
         self.cov_moving_weight = 0.95
-        self.cov_weight = 0.05
+        self.cov_weight = 1.
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':
             self.absorb_j = lambda x, cv: tf.reshape(x, (-1, *x.shape[2:])) if cv > 1. else x
-            self.compute_normalization = lambda n_samples, conv_factor: n_samples * conv_factor
+            self.compute_normalization = lambda n_samples, conv_factor: float(n_samples * conv_factor)
 
         elif conv_approx == 'ba':
             self.absorb_j = lambda x, cv: tf.reduce_mean(x, axis=1) if cv > 1. else x
@@ -55,7 +55,7 @@ class KFAC_Actor():
             pre_activations = [pa for pa in pre_activations[:-1]]
 
         grads = tape.gradient(loss, model.trainable_weights)
-        grads = [grad / n_samples for grad in grads]
+        grads = [grad / float(n_samples) for grad in grads]
         n_s, n_a = grads[-1].shape[:2]
         grads[-1] = tf.reshape(grads[-1], (n_a, n_s))
 
@@ -71,6 +71,7 @@ class KFAC_Actor():
 
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
+
 
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
@@ -88,6 +89,8 @@ class KFAC_Actor():
 
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
+
+            print(name, conv_factor, normalize)
 
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
@@ -111,7 +114,9 @@ class KFAC_Actor():
     # m_xx = (cov_moving_weight * m_xx + cov_weight * xx)  / normalization
     def update_m_aa_and_m_ss(self, aa, ss, name, iteration):
         cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
-        cov_weight = 1 - cov_moving_weight
+        cov_weight = self.cov_weight
+        self.cov_normalize = cov_weight + cov_moving_weight
+
         # cov_moving_weight = self.cov_moving_weight
         # cov_weight = self.cov_weight
         # tensorflow and or ray has a weird thing about inplace operations??
@@ -120,6 +125,12 @@ class KFAC_Actor():
 
         self.m_ss[name] *= cov_moving_weight / self.cov_normalize
         self.m_ss[name] += (cov_weight * ss) / self.cov_normalize
+
+        # self.m_aa[name] = self.m_aa[name] * cov_moving_weight / self.cov_normalize  # multiply
+        # self.m_aa[name] = self.m_aa[name] + (cov_weight * aa) / self.cov_normalize  # add
+        #
+        # self.m_ss[name] = self.m_ss[name] * cov_moving_weight / self.cov_normalize
+        # self.m_ss[name] = self.m_ss[name] + (cov_weight * ss) / self.cov_normalize
         return
 
     @staticmethod
@@ -227,7 +238,7 @@ class KFAC():
         nat_grads = []
         for g, name in zip(grads, self.layers):
             conv_factor = self.compute_conv_factor(extract_cv(name))
-
+            print(name, conv_factor)
             maa = m_aa[name]
             mss = m_ss[name]
 
@@ -246,6 +257,7 @@ class KFAC():
             sq_fisher_norm += tf.reduce_sum(ng * g)
         self.eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (self.lr**2 * sq_fisher_norm)))
         tf.summary.scalar('kfac/sq_fisher_norm', sq_fisher_norm, self.iteration)
+        tf.summary.scalar('kfac/eta', self.eta, self.iteration)
         return self.eta
 
     def compute_lr(self, iteration):

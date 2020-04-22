@@ -181,7 +181,8 @@ def compute_rolling_std(current_std, current_mean, batch, new_std, new_mean):
 def log(models, updates, log_config, iteration, e_locs):
     printer = {}
     amplitudes, acceptance, samples, e_loc = get_info(models)
-
+    sam_mean = tf.reduce_mean(tf.abs(samples))
+    tf.summary.scalar('samples/mean', sam_mean, iteration)
     # energy
     e_loc_mean_shifted = tf.abs(tf.reduce_mean(e_loc) - log_config['e_min'])
     e_loc_mean = tf.reduce_mean(e_loc)

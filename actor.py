@@ -3,6 +3,8 @@ import ray
 @ray.remote(num_gpus=1)
 class Network(object):
     def __init__(self, config, gpu_id):
+        self.gpu_id = gpu_id
+
         import tensorflow as tf
         import numpy as np
         from time import time
@@ -62,7 +64,8 @@ class Network(object):
             kfac_config = filter_dict(config, KFAC_Actor)
             self.kfac = KFAC_Actor(self.model, **kfac_config)
             print('Using kfac optimizer')
-        print('n_samples per actor: ', self.n_samples)
+        assert self.n_samples == len(self.samples)
+        print('n_samples per actor: ', self.n_samples, len(self.samples))
 
         # store references to avoid reimport
         self._extract_grads = extract_grads
@@ -166,5 +169,7 @@ class Network(object):
     def load_samples(self, path=None):
         if path is None:
             path = self.model_path[:-4] + 'pk'
+        start = self.gpu_id*self.n_samples
+        stop = start + self.n_samples
         self.samples = \
-            self._tf.convert_to_tensor(self._load_sample(path)[:self.n_samples, ...])
+            self._tf.convert_to_tensor(self._load_sample(path)[start:stop, ...])

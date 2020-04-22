@@ -68,6 +68,13 @@ def main(config):
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
 
+                for name in layers:
+                    tf.summary.scalar('kfac/maa_%s_mean' % name, tf.reduce_mean(tf.abs(m_aa[name])), iteration)
+                    tf.summary.scalar('kfac/mss_%s_mean' % name, tf.reduce_mean(tf.abs(m_ss[name])), iteration)
+                    tf.summary.scalar('kfac/maa_%s_max' % name, tf.reduce_max(tf.abs(m_aa[name])), iteration)
+                    tf.summary.scalar('kfac/mss_%s_max' % name, tf.reduce_max(tf.abs(m_ss[name])), iteration)
+
+                tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
                 step_forward(models, updates_lr)
 
