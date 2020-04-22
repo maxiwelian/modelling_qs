@@ -151,7 +151,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
 
-    # python main.py -gpu 4 -o kfac -exp first_run -pi 1000 -bi 100 -i 1000 -dm ft -exp_dir env_init
+    # python main.py -gpu 4 -o kfac -exp the1 -pi 2000 -bi 100 -i 100000 -dm ft -exp_dir the1 -ca ba
     # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
 
     if args.half_model:

@@ -301,12 +301,12 @@ class FactoredTikhonov():
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
-        # tr_a = self.get_tr_norm(m_aa)
-        # tr_s = self.get_tr_norm(m_ss)
+        tr_a = self.get_tr_norm(m_aa)
+        tr_s = self.get_tr_norm(m_ss)
 
         # if 'stream' not in name:
-        pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
-        # pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+        # pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
+        pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
         # tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
         # tf.debugging.check_numerics(pi, 'pi')
