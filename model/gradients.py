@@ -11,7 +11,7 @@ def extract_grads(model, inp, e_loc_centered, n_samples):
     return [grad / n_samples for grad in grads]
 
 def extract_cv(name):
-    return float(tf.split(tf.split(name, '_')[-1], ':')[0])
+    return float(name.split('_')[-1].split(':')[0])
 
 class KFAC_Actor():
     def __init__(self,
@@ -71,7 +71,6 @@ class KFAC_Actor():
 
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
-            print(name, conv_factor)
 
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
@@ -87,7 +86,6 @@ class KFAC_Actor():
 
             normalize = self.compute_normalization(n_samples, conv_factor)  # this is dependent on the conv approx
 
-            print(normalize)
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
 
@@ -171,7 +169,7 @@ class KFAC_Actor():
 
         a_shapes, s_shapes = [], []
         for a, s, name in zip(activations, pre_activations, self.layers):
-            conv_factor = float(name[-3])
+            conv_factor = extract_cv(name)
 
             a = self.absorb_j(a, conv_factor)
             s = self.absorb_j(s, conv_factor)
@@ -247,6 +245,7 @@ class KFAC():
         for ng, g in zip(nat_grads, grads):
             sq_fisher_norm += tf.reduce_sum(ng * g)
         self.eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (self.lr**2 * sq_fisher_norm)))
+        tf.summary.scalar('kfac/sq_fisher_norm', sq_fisher_norm, self.iteration)
         return self.eta
 
     def compute_lr(self, iteration):
@@ -262,12 +261,12 @@ class Tikhonov():
 
         vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
 
-        v1 = tf.linalg.matmul(vecs_a, g, transpose_a=True) @ vecs_s
+        v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
         divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
         v2 = v1 / (divisor + damping / conv_factor)
         ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
 
-        return ng * conv_factor
+        return ng
 
     def compute_eig_decomp(self, maa, mss):
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
@@ -294,7 +293,7 @@ class FactoredTikhonov():
         inv_maa = tf.linalg.inv(maa)
         inv_mss = tf.linalg.inv(mss)
 
-        ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g), inv_mss)
+        ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
         return ng
 
     def damp(self, m_aa, m_ss, conv_factor, damping, name, iteration):  # factored tikhonov damping
