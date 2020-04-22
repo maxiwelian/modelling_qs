@@ -45,13 +45,6 @@ def main(config):
                     update_weights_pretrain(models, new_grads)
                     [model.sample.remote() for model in models]
 
-                    if iteration % 100 == 0:
-                        _, e_mean, _ = get_energy(models)
-                        tf.summary.scalar('pretrain/energy', e_mean, iteration)
-                        tf.summary.flush()
-                        if e_mean - config['e_min'] < 0.4:
-                            break
-
                     print('pretrain iteration %i...' % iteration)
 
                 save_pretrain_model_and_samples(models, config, iteration)

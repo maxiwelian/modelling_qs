@@ -1,6 +1,3 @@
-
-
-
 # The functions below are proxies for the actor
 
 import tensorflow as tf
@@ -68,6 +65,7 @@ def get_grads_and_maa_and_mss(models, layers):
         mean_g.append(tf.reduce_mean(tf.stack([g[j] for g in grads]), axis=0))
         maa = (tf.reduce_mean(tf.stack([ma[name] for ma in m_aa]), axis=0))
         mss = (tf.reduce_mean(tf.stack([ms[name] for ms in m_ss]), axis=0))
+
         # enforce symmetry (there may be numerical errors)
         maa = (tf.linalg.matrix_transpose(maa) + maa) / 2.
         mss = (tf.linalg.matrix_transpose(mss) + mss) / 2.

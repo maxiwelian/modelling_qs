@@ -165,11 +165,8 @@ class MetropolisHasting:
             new_prob_hf = self.pretrainer.compute_orbital_probability(new_sample_hf)  # call numpy to take out of graph
 
             # --- update sample
-            alpha_model = new_prob_model / (curr_prob_model+floor)
-            alpha_hf = new_prob_hf / (curr_prob_hf+floor)
-
-            tf.debugging.check_numerics(alpha_model, 'houston, we have a problem1')
-            tf.debugging.check_numerics(alpha_hf, 'houston, we have a problem2')
+            alpha_model = new_prob_model / curr_prob_model
+            alpha_hf = new_prob_hf / curr_prob_hf
 
             # --- generate masks
             mask_model = alpha_model > self.alpha_distr.sample(alpha_model.shape)

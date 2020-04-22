@@ -154,8 +154,7 @@ class Network(object):
         self.model.set_weights(weights)
 
     def get_model_details(self):
-        details = (self.n_params, self.n_layers, self.trainable_shapes,
-                   self.layers)
+        details = (self.n_params, self.n_layers, self.trainable_shapes, self.layers)
         return details
 
     def load_model(self, path=None):

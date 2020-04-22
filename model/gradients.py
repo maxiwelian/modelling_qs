@@ -10,6 +10,8 @@ def extract_grads(model, inp, e_loc_centered, n_samples):
     grads = tape.gradient(loss, model.trainable_weights)
     return [grad / n_samples for grad in grads]
 
+def extract_cv(name):
+    return float(tf.split(tf.split(name, '_')[-1], ':')[0])
 
 class KFAC_Actor():
     def __init__(self,
@@ -25,12 +27,12 @@ class KFAC_Actor():
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':
-            self.absorb_j = lambda x, n: tf.reshape(x, (-1, *x.shape[2:])) if (float(n[-3]) > 1.) else x
+            self.absorb_j = lambda x, cv: tf.reshape(x, (-1, *x.shape[2:])) if cv > 1. else x
             self.compute_normalization = lambda n_samples, conv_factor: n_samples * conv_factor
 
         elif conv_approx == 'ba':
-            self.absorb_j = lambda x, n: tf.reduce_mean(x, axis=1) if (float(n[-3]) > 1.) else x
-            self.compute_normalization = lambda n_samples, conv_factor: n_samples
+            self.absorb_j = lambda x, cv: tf.reduce_mean(x, axis=1) if cv > 1. else x
+            self.compute_normalization = lambda n_samples, conv_factor: float(n_samples)
 
         self.m_aa = {}
         self.m_ss = {}
@@ -45,6 +47,7 @@ class KFAC_Actor():
         self.iteration = 0
 
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
+
         with tf.GradientTape(True) as tape:
             out, activations, pre_activations, _, _ = model(inp)
             loss = out * e_loc_centered
@@ -67,14 +70,15 @@ class KFAC_Actor():
         #     self.compute_comparison_gradient(als, ls, name, n_samples, g, conv_factor)
 
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
-            conv_factor = float(name[-3])
+            conv_factor = extract_cv(name)
+            print(name, conv_factor)
 
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
                 s = self.center(s)
 
-            a = self.absorb_j(a, name)  # couple different conv approx methods
-            s = self.absorb_j(s, name)
+            a = self.absorb_j(a, conv_factor)  # couple different conv approx methods
+            s = self.absorb_j(s, conv_factor)
 
             a = self.append_bias_if_needed(a, name)  # after the centering
 
@@ -83,13 +87,9 @@ class KFAC_Actor():
 
             normalize = self.compute_normalization(n_samples, conv_factor)  # this is dependent on the conv approx
 
+            print(normalize)
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
-
-            # self.m_aa[name] = aa
-            # self.m_ss[name] = ss
-            # print(aa.shape, ss.shape, g.shape)
-            # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
 
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
@@ -171,8 +171,10 @@ class KFAC_Actor():
 
         a_shapes, s_shapes = [], []
         for a, s, name in zip(activations, pre_activations, self.layers):
-            a = self.absorb_j(a, name)
-            s = self.absorb_j(s, name)
+            conv_factor = float(name[-3])
+
+            a = self.absorb_j(a, conv_factor)
+            s = self.absorb_j(s, conv_factor)
 
             a = self.append_bias_if_needed(a, name)
 
@@ -225,13 +227,13 @@ class KFAC():
         self.lr = self.compute_lr(iteration)
 
         nat_grads = []
-        for g, layer in zip(grads, self.layers):
-            conv_factor = self.compute_conv_factor(float(layer[-3]))
+        for g, name in zip(grads, self.layers):
+            conv_factor = self.compute_conv_factor(extract_cv(name))
 
-            maa = m_aa[layer]
-            mss = m_ss[layer]
+            maa = m_aa[name]
+            mss = m_ss[name]
 
-            ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, layer, iteration)
+            ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
 
             nat_grads.append(ng)
 
