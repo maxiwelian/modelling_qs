@@ -74,7 +74,9 @@ def main(config):
             else:
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
-                step_forward(models, updates)
+
+                updates_lr = [-1. * kfac.lr * up for up in updates]
+                step_forward(models, updates_lr)
 
             if iteration % config['log_every'] == 0:
                 log(models, updates, log_config, iteration, e_locs)
@@ -157,6 +159,8 @@ if __name__ == '__main__':
     args.seed = True
 
     # python main.py -gpu 4 -o kfac -exp first_run -pi 1000 -bi 100 -i 1000 -dm ft -exp_dir env_init
+    # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
+
     if args.half_model:
         args.n_samples = 1024
         args.nf_hidden_single = 128

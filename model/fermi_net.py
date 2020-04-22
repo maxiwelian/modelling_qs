@@ -239,7 +239,6 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
     ee_vectors = re1 - re2
 
-
     mask = tf.eye(n_electrons, dtype=tf.bool)
     mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
 

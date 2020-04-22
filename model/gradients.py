@@ -35,9 +35,9 @@ class KFAC_Actor():
         self.m_aa = {}
         self.m_ss = {}
 
-        m_aa_shapes, m_ss_shapes = self.extract_m_xx_shapes(model)
+        self.m_aa_shapes, self.m_ss_shapes = self.extract_m_xx_shapes(model)
 
-        for shape_a, shape_s, name in zip(m_aa_shapes, m_ss_shapes, self.layers):
+        for shape_a, shape_s, name in zip(self.m_aa_shapes, self.m_ss_shapes, self.layers):
             self.m_aa[name] = tf.ones(shape_a)
             self.m_ss[name] = tf.ones(shape_s)
 
@@ -86,6 +86,8 @@ class KFAC_Actor():
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
 
+            # self.m_aa[name] = aa
+            # self.m_ss[name] = ss
             # print(aa.shape, ss.shape, g.shape)
             # assert len(aa.shape[:-2]) == len(ss.shape[:-2]) == len(g.shape[:-2])
 
@@ -200,6 +202,7 @@ class KFAC():
                  conv_approx):
 
         self.lr0 = lr0
+        self.lr = lr0
         self.decay = decay
 
         self.layers = layers
@@ -212,18 +215,14 @@ class KFAC():
             self.compute_conv_factor = lambda x: x
 
         if damping_method == 'tikhonov':
-            self.damp = lambda x, y, z, h, i: (x, y)  # do nothing
-            self.decomp_damping = lambda conv_factor: self.damping / conv_factor
-        elif damping_method == 'ft':  # factored tikhonov
-            self.damp = self.ft_damp
-            self.decomp_damping = lambda conv_factor: 0.  # add zero in the inversion as damping is done before
-
-        self.nat_grad_conv_norm = lambda conv_factor: conv_factor
+            self.ops = Tikhonov()
+        elif damping_method == 'ft':
+            self.ops = FactoredTikhonov()
 
         self.iteration = 0
 
     def compute_updates(self, grads, m_aa, m_ss, iteration):
-        lr = self.compute_lr(iteration)
+        self.lr = self.compute_lr(iteration)
 
         nat_grads = []
         for g, layer in zip(grads, self.layers):
@@ -232,34 +231,43 @@ class KFAC():
             maa = m_aa[layer]
             mss = m_ss[layer]
 
-            maa, mss = self.damp(maa, mss, conv_factor, layer, iteration)
-
-            vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
-
-            decomp_damping = self.decomp_damping(conv_factor)  # calls depending on the damping method
-
-            # T F + \lambda I = T (F + \lambda I / (T))
-            ng = self.compute_nat_grads(vals_a, vecs_a, vals_s, vecs_s, g, decomp_damping) / conv_factor
+            ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, layer, iteration)
 
             nat_grads.append(ng)
 
-        eta = self.compute_norm_constraint(nat_grads, grads, lr)
+        eta = self.compute_norm_constraint(nat_grads, grads)
 
         self.iteration += 1
-        return [-1. * eta * lr * ng for ng in nat_grads]
+        return [eta * ng for ng in nat_grads]
 
-    def compute_norm_constraint(self, nat_grads, grads, lr):
+    def compute_norm_constraint(self, nat_grads, grads):
         sq_fisher_norm = 0
         for ng, g in zip(nat_grads, grads):
             sq_fisher_norm += tf.reduce_sum(ng * g)
-        self.eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (lr**2 * sq_fisher_norm)))
+        self.eta = tf.minimum(1., tf.sqrt(self.norm_constraint / (self.lr**2 * sq_fisher_norm)))
         return self.eta
 
+    def compute_lr(self, iteration):
+        return self.lr0 / (1 + self.decay * iteration)
+
+
+
+class Tikhonov():
+    def __init__(self):
+        print('Tikhonov damping')
+
+    def compute_nat_grads(self,  maa, mss, g, conv_factor, damping, layer, iteration):
+
+        vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
+
+        v1 = tf.linalg.matmul(vecs_a, g, transpose_a=True) @ vecs_s
+        divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
+        v2 = v1 / (divisor + damping / conv_factor)
+        ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
+
+        return ng * conv_factor
+
     def compute_eig_decomp(self, maa, mss):
-
-        tf.summary.scalar('maa/maa_mean', tf.reduce_mean(maa), self.iteration)
-        tf.summary.scalar('mss/mss_mean', tf.reduce_mean(mss), self.iteration)
-
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
         with tf.device("/cpu:0"):
             vals_a, vecs_a = tf.linalg.eigh(maa)
@@ -271,26 +279,23 @@ class KFAC():
 
         return vals_a, vecs_a, vals_s, vecs_s
 
-    def compute_nat_grads(self, vals_a, vecs_a, vals_s, vecs_s, grad, normalized_damping):
-        # apply tikhonov damping here using the expression from appendix B https://arxiv.org/pdf/1503.05671.pdf
-        # don't include the fisher information matrix scaling in the damping (is absorbed into lr)
-        # 4 T F + \lambda I = 4 T (F + \lambda I / (4 * T))
 
-        v1 = tf.linalg.matmul(vecs_a, grad, transpose_a=True) @ vecs_s
-        divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
-        v2 = v1 / (divisor + normalized_damping)
-        v3 = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
-        return v3
 
-    def compute_lr(self, iteration):
-        return self.lr0 / (1 + self.decay * iteration)
 
-    @staticmethod
-    def get_tr_norm(m_xx):
-        trace = tf.linalg.trace(m_xx)
-        return tf.maximum(1e-10 * tf.ones_like(trace), trace)
+class FactoredTikhonov():
+    def __init__(self):
+        print('Factored Tikhonov damping')
 
-    def ft_damp(self, m_aa, m_ss, conv_factor, name, iteration):  # factored tikhonov damping
+    def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
+        maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
+
+        inv_maa = tf.linalg.inv(maa)
+        inv_mss = tf.linalg.inv(mss)
+
+        ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g), inv_mss)
+        return ng
+
+    def damp(self, m_aa, m_ss, conv_factor, damping, name, iteration):  # factored tikhonov damping
         dim_a = m_aa.shape[-1]
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
@@ -309,10 +314,10 @@ class KFAC():
         eye_s = tf.eye(dim_s, batch_shape=batch_shape)
 
         eps = 1e-8
-        m_aa_damping = tf.sqrt(pi * self.damping / conv_factor)
+        m_aa_damping = tf.sqrt(pi * damping / conv_factor)
         # m_aa_damping = tf.maximum(eps * tf.ones_like(m_aa_damping), m_aa_damping)
 
-        m_ss_damping = tf.sqrt(self.damping / (pi * conv_factor))
+        m_ss_damping = tf.sqrt(damping / (pi * conv_factor))
         # m_ss_damping = tf.maximum(eps * tf.ones_like(m_ss_damping), m_ss_damping)
 
         # tf.debugging.check_numerics(m_aa_damping, 'm_aa_damping')
@@ -327,6 +332,12 @@ class KFAC():
         # tf.debugging.check_numerics(m_aa, 'm_aa')
         # tf.debugging.check_numerics(m_ss, 'm_ss')
         return m_aa, m_ss
+
+    @staticmethod
+    def get_tr_norm(m_xx):
+        trace = tf.linalg.trace(m_xx)
+        return tf.maximum(1e-10 * tf.ones_like(trace), trace)
+
 
 
 
