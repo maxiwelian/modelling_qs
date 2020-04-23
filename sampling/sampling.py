@@ -23,7 +23,7 @@ class MVGaussian(tfp.distributions.MultivariateNormalFullCovariance, SampleDistr
 
 
 class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDistribution):
-    def __init__(self, mu, sigma, step_mu=None, step_sigma=None):
+    def __init__(self, mu, sigma, step_mu=None, step_sigma=None, sigma_normal=None):
         super(RandomWalker, self).__init__(mu, sigma)
 
         if step_mu is None:
@@ -31,11 +31,13 @@ class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDis
         if step_sigma is None:
             step_sigma = sigma
 
-        self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
+        self.step_sigma = sigma_normal
+        # self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
 
     @tf.function
     def resample(self, prev_sample):
-        return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
+        # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
+        return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma)  # faster
 
 
 class MetropolisHasting:
@@ -72,10 +74,10 @@ class MetropolisHasting:
         for ne_atom, atom_position in zip(self.ne_atoms, self.atom_positions):
             for e in range(ne_atom):
                 if e % 2 == 0:
-                    curr_sample_up = np.random.normal(loc=atom_position, scale=0.5, size=(self.n_samples, 1, 3))
+                    curr_sample_up = np.random.normal(loc=atom_position, scale=1., size=(self.n_samples, 1, 3))
                     ups.append(curr_sample_up)
                 else:
-                    curr_sample_down = np.random.normal(loc=atom_position, scale=0.5, size=(self.n_samples, 1, 3))
+                    curr_sample_down = np.random.normal(loc=atom_position, scale=1., size=(self.n_samples, 1, 3))
                     downs.append(curr_sample_down)
         ups = np.concatenate(ups, axis=1)
         downs = np.concatenate(downs, axis=1)

@@ -5,9 +5,6 @@ def save_pretrain_model_and_samples(models, config, iteration):
     save_samples(samples, config['pretrained_samples'].format(iteration + 1))
 
 def main(config):
-    if config['seed']:
-        tf.random.set_seed(7)
-        np.random.seed(7)
 
     n_iterations = config['n_iterations']
     n_samples = config['n_samples_total']
@@ -132,7 +129,7 @@ if __name__ == '__main__':
 
     # sampling
     parser.add_argument('-si', '--sampling_init', default=1., type=float)
-    parser.add_argument('-ss', '--sampling_steps', default=0.02, type=float)
+    parser.add_argument('-ss', '--sampling_steps', default=0.02**0.5, type=float)
     parser.add_argument('-bi', '--n_burn_in', default=1, type=int)
     parser.add_argument('-cl', '--correlation_length', default=10, type=int)
     parser.add_argument('-bb', '--burn_batches', default=10, type=int)  # number of batches in a burn

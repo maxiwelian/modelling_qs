@@ -34,8 +34,7 @@ class Network(object):
         # * - sampling
         self.sample_space = RandomWalker(tf.zeros(3),
                                          tf.eye(3) * config['sampling_init'],
-                                         tf.zeros(3),
-                                         tf.eye(3) * config['sampling_steps'])
+                                         tf.zeros(3), tf.eye(3) * config['sampling_steps'], config['sampling_steps'])
 
         model_sampler_params = filter_dict(config, MetropolisHasting)
         self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, **model_sampler_params)
@@ -88,9 +87,11 @@ class Network(object):
         grads = self.pretrainer.compute_grads(self.samples, self.model)
         return grads
 
-    def get_grads(self):
-        e_loc = self.get_energy()
-        e_loc_centered = self.center_energy(e_loc)
+    def get_grads(self, e_loc_centered):
+        if e_loc_centered is None:
+            e_loc = self.get_energy()
+            e_loc_centered = self.center_energy(e_loc)
+
         grads = self._extract_grads(self.model,
                                     self.samples,
                                     e_loc_centered,
@@ -102,9 +103,11 @@ class Network(object):
         e_loc_centered = e_loc_clipped - self._tf.reduce_mean(e_loc_clipped)
         return e_loc_centered
 
-    def get_grads_and_maa_and_mss(self):
-        e_loc = self.get_energy()
-        e_loc_centered = self.center_energy(e_loc)
+    def get_grads_and_maa_and_mss(self, e_loc_centered):
+        if e_loc_centered is None:
+            e_loc = self.get_energy()
+            e_loc_centered = self.center_energy(e_loc)
+
         grads, m_aa, m_ss = self.kfac.extract_grads_and_a_and_s(self.model,
                                                                 self.samples,
                                                                 e_loc_centered,

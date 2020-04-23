@@ -35,7 +35,8 @@ def update_weights_pretrain(models, grads):
 
 # training
 def get_grads(models):
-    grads = ray.get([model.get_grads.remote() for model in models])
+    e_loc_centered, _, _, _ = get_energy_and_center(models)
+    grads = ray.get([model.get_grads.remote(e) for model, e in zip(models, e_loc_centered)])
     new_grads = []
     for layer_id in range(len(grads[0])):
         grads_layer = tf.reduce_mean(tf.stack([grad[layer_id] for grad in grads]), axis=0)
@@ -53,7 +54,8 @@ def update_weights_optimizer(models, grads):
 
 # kfac
 def get_grads_and_maa_and_mss(models, layers):
-    data = ray.get([model.get_grads_and_maa_and_mss.remote() for model in models])
+    e_loc_centered, _, _, _ = get_energy_and_center(models)
+    data = ray.get([model.get_grads_and_maa_and_mss.remote(e) for model, e in zip(models, e_loc_centered)])
     grads = [d[0] for d in data]
     m_aa = [d[1] for d in data]
     m_ss = [d[2] for d in data]
@@ -92,9 +94,9 @@ def get_energy(models):
     return e_loc, e_mean, e_std
 
 
-def get_energy_and_center(models, iteration):
+def get_energy_and_center(models):
     e_loc, e_mean, e_std = get_energy(models)
-    e_loc_clipped = clip(e_loc, iteration)
+    e_loc_clipped = clip(e_loc)
     e_loc_centered = e_loc_clipped - tf.reduce_mean(e_loc_clipped)
     return e_loc_centered, e_mean, e_loc, e_std
 
