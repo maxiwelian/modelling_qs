@@ -98,6 +98,7 @@ def get_energy_and_center(models):
     e_loc, e_mean, e_std = get_energy(models)
     e_loc_clipped = clip(e_loc)
     e_loc_centered = e_loc_clipped - tf.reduce_mean(e_loc_clipped)
+    e_loc_centered = tf.split(e_loc_centered, len(models))
     return e_loc_centered, e_mean, e_loc, e_std
 
 

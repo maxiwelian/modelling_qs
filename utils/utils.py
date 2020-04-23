@@ -179,7 +179,7 @@ def compute_rolling_std(current_std, current_mean, batch, new_std, new_mean):
 
 
 def log(models, updates, log_config, iteration, e_locs):
-    printer = {}
+    printer = {'iteration/iteration': [iteration, 2]}
     amplitudes, acceptance, samples, e_loc = get_info(models)
     sam_mean = tf.reduce_mean(tf.abs(samples))
     tf.summary.scalar('samples/mean', sam_mean, iteration)

@@ -35,6 +35,7 @@ class fermiNet(tk.Model):
         # --- initializations
         nf_single_in = 4 * n_atoms
         n_pairwise = n_electrons ** 2 - n_electrons
+        # n_pairwise = n_electrons ** 2  # - n_electrons
         nf_pairwise_in = 4
 
         nf_single_in_mixed = 3 * nf_single_in + 2 * nf_pairwise_in
@@ -245,8 +246,11 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     ee_vectors = tf.boolean_mask(ee_vectors, mask)
     ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2 - n_electrons, 3))
     ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
+
     pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
 
+    # ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
+    # pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
     return single_inputs, pairwise_inputs
 
 
@@ -291,10 +295,10 @@ class Mixer(tk.Model):
         replace = tf.zeros_like(sum_pairwise)
         # up
         sum_pairwise_up = tf.where(self.pairwise_spin_up_mask, sum_pairwise, replace)
-        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / (self.n_spin_up - 1)
+        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / self.n_spin_up
         # down
         sum_pairwise_down = tf.where(self.pairwise_spin_down_mask, sum_pairwise, replace)
-        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / (self.n_spin_down - 1)
+        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / self.n_spin_down
 
         features = tf.concat((single, sum_spin_up, sum_spin_down, sum_pairwise_up, sum_pairwise_down), 2)
         return features
@@ -423,10 +427,11 @@ def _log_abs_sum_det_fwd(a, b, w):
     # return log_psi, sign_shifted_sum, activations, sensitivities, \
     #           (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)
 
-    sensitivities = tf.exp(-log_psi) * sign_unshifted_sum
+    # sensitivities = tf.exp(-log_psi) * sign_unshifted_sum
+    sensitivities = tf.exp(xmax-log_psi) * sign_shifted_sum
     dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 
-    return log_psi, sign_shifted_sum, unshifted_exp, sensitivities, \
+    return log_psi, sign_shifted_sum, shifted_exp, sensitivities, \
            (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)
 
 # @tf.function
