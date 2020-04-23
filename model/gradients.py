@@ -23,7 +23,7 @@ class KFAC_Actor():
 
         self.n_spins = n_spins
         self.cov_moving_weight = 0.95
-        self.cov_weight = 1.
+        self.cov_weight = 0.05
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':

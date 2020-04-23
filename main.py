@@ -232,6 +232,12 @@ if __name__ == '__main__':
     config = dict(args_config, **config)
     config = dict(config, **system_config)
 
+    if not os.path.exists(path_experiment):
+        os.makedirs(path_experiment)
+
+    with open(os.path.join(path_experiment, 'config.pk'), 'wb') as f:
+        pk.dump(config, f)
+
     main(config)
 
 
