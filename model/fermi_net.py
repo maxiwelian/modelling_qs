@@ -291,10 +291,10 @@ class Mixer(tk.Model):
         replace = tf.zeros_like(sum_pairwise)
         # up
         sum_pairwise_up = tf.where(self.pairwise_spin_up_mask, sum_pairwise, replace)
-        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / self.n_spin_up
+        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / (self.n_spin_up - 1)
         # down
         sum_pairwise_down = tf.where(self.pairwise_spin_down_mask, sum_pairwise, replace)
-        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / self.n_spin_down
+        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / (self.n_spin_down - 1)
 
         features = tf.concat((single, sum_spin_up, sum_spin_down, sum_pairwise_up, sum_pairwise_down), 2)
         return features

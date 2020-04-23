@@ -72,7 +72,6 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
 
-
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 a = self.center(a)
                 s = self.center(s)
@@ -89,8 +88,6 @@ class KFAC_Actor():
 
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
-
-            print(name, conv_factor, normalize)
 
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
@@ -238,7 +235,6 @@ class KFAC():
         nat_grads = []
         for g, name in zip(grads, self.layers):
             conv_factor = self.compute_conv_factor(extract_cv(name))
-            print(name, conv_factor)
             maa = m_aa[name]
             mss = m_ss[name]
 

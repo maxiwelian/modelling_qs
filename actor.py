@@ -9,10 +9,6 @@ class Network(object):
         import numpy as np
         from time import time
 
-        if config['seed']:
-            tf.random.set_seed(7)
-            np.random.seed(7)
-
         from sampling.sampling import MetropolisHasting, RandomWalker
         from model.fermi_net import fermiNet
         from energy.energy import compute_local_energy
