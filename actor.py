@@ -6,6 +6,8 @@ class Network(object):
         self.gpu_id = gpu_id
 
         import tensorflow as tf
+        tf.logging.set_verbosity(tf.logging.ERROR)
+
         import numpy as np
         from time import time
 
@@ -46,17 +48,10 @@ class Network(object):
 
         # * - model details
         self.n_params = np.sum([np.prod(v.get_shape().as_list()) for v in self.model.trainable_weights])
+        print('n params in network: ', self.n_params)
         self.n_layers = len(self.model.trainable_weights)
         self.layers = [w.name for w in self.model.trainable_weights]
         self.trainable_shapes = [w.shape for w in self.model.trainable_weights]
-
-        if config['full_pairwise']:
-            with self._tf.GradientTape() as g:
-                g.watch(self.samples)
-                psi, _, _, _, _ = self.model(self.samples)
-            grad = g.gradient(psi, self.samples)
-            print('CHECKING GRADS')
-            tf.debugging.check_numerics(grad, 'nans')
 
         # * - optimizers
         self.optimizer_pretrain = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -84,6 +79,14 @@ class Network(object):
         self.acceptance = tf.constant(0.0, dtype=tf.float32)
         self.e_loc = tf.zeros(len(self.samples))
         self.amps = tf.zeros(len(self.samples))
+
+        if config['full_pairwise']:
+            with self._tf.GradientTape() as g:
+                g.watch(self.samples)
+                psi, _, _, _, _ = self.model(self.samples)
+            grad = g.gradient(psi, self.samples)
+            print('CHECKING GRADS')
+            tf.debugging.check_numerics(grad, 'nans')
 
     # gradients & energy
     def get_energy(self):

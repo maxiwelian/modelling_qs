@@ -54,7 +54,6 @@ class KFAC_Actor():
             s_w = pre_activations[-1]
             pre_activations = [pa for pa in pre_activations[:-1]]
 
-        tf.debugging.check_numerics(e_loc_centered, 'grad')
         grads = tape.gradient(loss, model.trainable_weights)
         grads = [grad / float(n_samples) for grad in grads]
         n_s, n_a = grads[-1].shape[:2]
@@ -123,12 +122,6 @@ class KFAC_Actor():
 
         self.m_ss[name] *= cov_moving_weight / self.cov_normalize
         self.m_ss[name] += (cov_weight * ss) / self.cov_normalize
-
-        # self.m_aa[name] = self.m_aa[name] * cov_moving_weight / self.cov_normalize  # multiply
-        # self.m_aa[name] = self.m_aa[name] + (cov_weight * aa) / self.cov_normalize  # add
-        #
-        # self.m_ss[name] = self.m_ss[name] * cov_moving_weight / self.cov_normalize
-        # self.m_ss[name] = self.m_ss[name] + (cov_weight * ss) / self.cov_normalize
         return
 
     @staticmethod
@@ -297,18 +290,10 @@ class FactoredTikhonov():
     def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
         maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
 
-        # print(tf.reduce_mean(tf.abs(mss)), layer)
         inv_maa = tf.linalg.inv(maa)
         inv_mss = tf.linalg.inv(mss)
 
-        # tf.debugging.check_numerics(inv_maa, 'x')
-        # tf.debugging.check_numerics(inv_mss, 'a')
-
-        tf.debugging.check_numerics(g, layer)
-
         ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
-        # print(conv_factor)
-        tf.debugging.check_numerics(ng, layer)
         return ng
 
     def damp(self, m_aa, m_ss, conv_factor, damping, name, iteration):  # factored tikhonov damping
@@ -336,17 +321,8 @@ class FactoredTikhonov():
         m_ss_damping = tf.sqrt(damping / (pi * conv_factor))
         # m_ss_damping = tf.maximum(eps * tf.ones_like(m_ss_damping), m_ss_damping)
 
-        # tf.debugging.check_numerics(m_aa_damping, 'm_aa_damping')
-        # tf.debugging.check_numerics(m_ss_damping, 'm_ss_damping')
-        # print(pi.shape)
-        # print(tr_a.shape, m_aa.shape, m_aa_damping.shape, eye_a.shape)
-        # print(tr_s.shape, m_ss.shape, m_ss_damping.shape, eye_s.shape)
-
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping
-
-        # tf.debugging.check_numerics(m_aa, 'm_aa')
-        # tf.debugging.check_numerics(m_ss, 'm_ss')
         return m_aa, m_ss
 
     @staticmethod

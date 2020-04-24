@@ -65,12 +65,6 @@ def main(config):
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
 
-                # for name in layers:
-                #     tf.summary.scalar('kfac/maa_%s_mean' % name, tf.reduce_mean(tf.abs(m_aa[name])), iteration)
-                #     tf.summary.scalar('kfac/mss_%s_mean' % name, tf.reduce_mean(tf.abs(m_ss[name])), iteration)
-                #     tf.summary.scalar('kfac/maa_%s_max' % name, tf.reduce_max(tf.abs(m_aa[name])), iteration)
-                #     tf.summary.scalar('kfac/mss_%s_max' % name, tf.reduce_max(tf.abs(m_ss[name])), iteration)
-
                 tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
                 step_forward(models, updates_lr)
@@ -165,7 +159,11 @@ if __name__ == '__main__':
         args.nf_hidden_single = 128
         args.nf_hidden_pairwise = 32
         args.n_determinants = 16
-        model = 'hm'
+        model = '_hm_'
+
+    fp = ''
+    if args.full_pairwise:
+        fp = '_fp_'
 
     # generate the paths
     if args.local:
@@ -182,7 +180,7 @@ if __name__ == '__main__':
     n_exps = len(os.listdir(exp_dir))
     experiment = '%s_%s_%s_%.4f_%i' % (args.exp, args.system, args.opt, args.lr0, n_exps)
     if args.opt == 'kfac':
-        experiment += '_%s_%s_%s' % (args.damping_method, args.conv_approx, model)  # dmeth, conv_apprx etc
+        experiment += '_%s_%s%s%s' % (args.damping_method, args.conv_approx, model, fp)  # dmeth, conv_apprx etc
 
     path_experiment = os.path.join(exp_dir, experiment)
     model_path = os.path.join(path_experiment, 'i%i.ckpt' % args.load_iteration)

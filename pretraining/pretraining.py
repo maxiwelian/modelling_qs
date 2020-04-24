@@ -3,6 +3,16 @@ from pyscf import gto
 import tensorflow as tf
 import pickle as pk
 
+import sys, os
+
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
+
 def reader(path):
     mol = gto.Mole()
     with open(path, 'rb') as f:
@@ -30,9 +40,12 @@ class Pretrainer():
                  n_spin_down,
                  pretrain_path):
 
+
         try:
+            blockPrint()
             self.super_twist, self.mol = reader(pretrain_path)
             self.moT = self.super_twist.T
+            enablePrint()
         except:
             print('pretrain data does not exist...')
 
