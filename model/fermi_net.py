@@ -242,11 +242,31 @@ def compute_ae_vectors(r_atoms, r_electrons):
     return ae_vectors
 
 @tf.custom_gradient
+def safe_norm_grad(x, norm):
+    # x : (n, ne**2, 3)
+    # norm : (n, ne**2, 1)
+    g = x / norm
+    g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+    cache = (x, norm)
+
+    def grad_grad(dy):
+        x, norm = cache
+        x = tf.expand_dims(x, -1)  # (n, ne**2, 3, 1)
+        xx = x * tf.transpose(x, perm=(0, 1, 3, 2))  # cross terms
+        inv_norm = tf.tile(1. / norm, (1, 1, 3))  # (n, ne**2, 3) inf where the ee terms are same e
+        norm_diag = tf.linalg.diag(inv_norm) # (n, ne**2, 3, 3) # diagonal where the basis vector is the same
+        gg = norm_diag - xx / tf.expand_dims(norm, -1)**3
+        gg = tf.reduce_sum(gg, axis=-1)
+        gg = tf.where(tf.math.is_nan(gg), tf.zeros_like(gg), gg)
+        return dy*gg, None
+
+    return g, grad_grad
+
+@tf.custom_gradient
 def safe_norm(x):
     norm = tf.norm(x, keepdims=True, axis=-1)
     def grad(dy):
-        g = x / norm
-        g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+        g = safe_norm_grad(x, norm)
         return dy*g
     return norm, grad
 
@@ -268,10 +288,10 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, ful
         # eye_mask = tf.expand_dims(tf.expand_dims(tf.eye(n_electrons, dtype=tf.bool), 0), -1)
         # tmp = tf.where(eye_mask, 1., tf.norm(ee_vectors, keepdims=True, axis=-1))
         # ee_distances = tf.where(eye_mask, tf.zeros_like(eye_mask, dtype=tf.float32), tmp)
-
+        ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2, 3))
         ee_distances = safe_norm(ee_vectors)
         pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
-        pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
+        # pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
     else:
         # ** partial pairwise
         mask = tf.eye(n_electrons, dtype=tf.bool)

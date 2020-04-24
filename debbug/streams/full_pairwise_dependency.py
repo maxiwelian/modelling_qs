@@ -80,15 +80,29 @@ def laplacian(model, r_electrons):
     return dlogphi_dr**2, d2logphi_dr2
 
 @tf.custom_gradient
+def safe_norm_grad(x, norm):
+    g = x / norm
+    g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+    cache = (x, norm)
+    def grad_grad(dy):
+        x, norm = cache
+        x = tf.expand_dims(x, -1)
+        norm = tf.linalg.diag(1. / norm)
+        gg = norm - x * tf.transpose(x, perm=(0, 1, 3, 2))
+        gg = tf.reduce_sum(gg, axis=-1)
+        gg = tf.where(tf.math.is_nan(gg), tf.zeros_like(gg), gg)
+        return dy*gg
+    return g, grad_grad
+
+@tf.custom_gradient
 def safe_norm(x):
     norm = tf.norm(x, keepdims=True, axis=-1)
     def grad(dy):
-        g = x / norm
-        g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+        g = safe_norm_grad(x, norm)
         return dy*g
     return norm, grad
 
-n = 100
+n = 1
 from time import time
 
 t0 = time()
@@ -126,6 +140,8 @@ for _ in range(n):
         dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons * 3))
         grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
     d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)
+
+tf.debugging.check_numerics(d2logphi_dr2, 'd2')
 print(time() - t0)
 
 t0 = time()
