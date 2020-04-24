@@ -1,6 +1,6 @@
 
 import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = ''
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 import tensorflow as tf
 import numpy as np
@@ -59,27 +59,109 @@ with tf.GradientTape() as g:
 
 z = g.gradient(y, pairwise)
 
-print(z)
+# print(z)
 
-with tf.GradientTape() as g:
-    g.watch(re)
-    re1 = tf.expand_dims(re, 2)
-    re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
-    ee_vec = re1 - re2
-    ee_vec = tf.reshape(ee_vec, (-1, n_electrons ** 2, 3))
-    ee_dist = tf.norm(ee_vec, keepdims=True, axis=-1)
 
-    pairwise = tf.concat((ee_vec, ee_dist), -1)
+def laplacian(model, r_electrons):
+    n_electrons = r_electrons.shape[1]
+    r_electrons = tf.reshape(r_electrons, (-1, n_electrons*3))
+    r_s = [r_electrons[..., i] for i in range(r_electrons.shape[-1])]
+    with tf.GradientTape(True) as g:
+        [g.watch(r) for r in r_s]
+        r_electrons = tf.stack(r_s, -1)
+        r_electrons = tf.reshape(r_electrons, (-1, n_electrons, 3))
+        with tf.GradientTape(True) as gg:
+            gg.watch(r_electrons)
+            log_phi, _, _, _, _ = model(r_electrons)
+        dlogphi_dr = gg.gradient(log_phi, r_electrons)
+        dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons*3))
+        grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
+    d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)
+    return dlogphi_dr**2, d2logphi_dr2
 
-    # ops
-    sum_pairwise = tf.tile(tf.expand_dims(pairwise, 1), (1, n_electrons, 1, 1))
-    replace = tf.zeros_like(sum_pairwise)
-    # up
-    sum_pairwise_up = tf.where(mask, sum_pairwise, replace)
-    e_masked = tf.reduce_sum(sum_pairwise_up, 2) / 2
+@tf.custom_gradient
+def safe_norm(x):
+    norm = tf.norm(x, keepdims=True, axis=-1)
+    def grad(dy):
+        g = x / tf.sqrt(tf.reduce_sum(x**2))
+        g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+        return dy*g
+    return norm, grad
 
-    y = e_masked @ w
+n = 100
+from time import time
 
-z = g.gradient(y, e_masked)
+t0 = time()
+for _ in range(n):
+    n_electrons = re.shape[1]
+    re = tf.reshape(re, (-1, n_electrons*3))
+    r_s = [re[..., i] for i in range(re.shape[-1])]
+    with tf.GradientTape(True) as g:
+        [g.watch(r) for r in r_s]
+        re = tf.stack(r_s, -1)
+        re = tf.reshape(re, (-1, n_electrons, 3))
+        with tf.GradientTape(True) as gg:
+            gg.watch(re)
 
-print(z)
+            # model
+            re1 = tf.expand_dims(re, 2)
+            re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
+            ee_vec = re1 - re2
+
+            # ee_dist = tf.norm(ee_vec, keepdims=True, axis=-1)
+            ee_dist = safe_norm(ee_vec)
+            pairwise = tf.concat((ee_vec, ee_dist), -1)
+            pairwise = tf.reshape(pairwise, (-1, n_electrons**2, 4))
+
+            # ops
+            sum_pairwise = tf.tile(tf.expand_dims(pairwise, 1), (1, n_electrons, 1, 1))
+            replace = tf.zeros_like(sum_pairwise)
+            # up
+            sum_pairwise_up = tf.where(mask, sum_pairwise, replace)
+            e_masked = tf.reduce_sum(sum_pairwise_up, 2) / 2
+
+            log_phi = e_masked @ w
+
+        dlogphi_dr = gg.gradient(log_phi, re)
+        dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons * 3))
+        grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
+    d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)
+print(time() - t0)
+
+t0 = time()
+for _ in range(n):
+    n_electrons = re.shape[1]
+    re = tf.reshape(re, (-1, n_electrons*3))
+    r_s = [re[..., i] for i in range(re.shape[-1])]
+    with tf.GradientTape(True) as g:
+        [g.watch(r) for r in r_s]
+        re = tf.stack(r_s, -1)
+        re = tf.reshape(re, (-1, n_electrons, 3))
+        with tf.GradientTape(True) as gg:
+            gg.watch(re)
+
+            # model
+            re1 = tf.expand_dims(re, 2)
+            re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
+            ee_vec = re1 - re2
+
+            ee_dist = tf.norm(ee_vec, keepdims=True, axis=-1)
+            # ee_dist = safe_norm(ee_vec)
+            pairwise = tf.concat((ee_vec, ee_dist), -1)
+            pairwise = tf.reshape(pairwise, (-1, n_electrons**2, 4))
+
+            # ops
+            sum_pairwise = tf.tile(tf.expand_dims(pairwise, 1), (1, n_electrons, 1, 1))
+            replace = tf.zeros_like(sum_pairwise)
+            # up
+            sum_pairwise_up = tf.where(mask, sum_pairwise, replace)
+            e_masked = tf.reduce_sum(sum_pairwise_up, 2) / 2
+
+            log_phi = e_masked @ w
+
+        dlogphi_dr = gg.gradient(log_phi, re)
+        dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons * 3))
+        grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
+    d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)
+print(time() - t0)
+

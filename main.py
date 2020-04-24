@@ -12,6 +12,7 @@ def main(config):
 
     # create the actors on the available gpus
     models = [Network.remote(config, _) for _ in range(n_gpus)]
+
     n_params, n_layers, trainable_shapes, layers = ray.get(models[0].get_model_details.remote())
 
     # initialize the kfac class
@@ -75,10 +76,11 @@ def main(config):
 
 
 if __name__ == '__main__':
+    import logging
     import ray
     ray.init()
-
     import os
+    # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = ''  # tensorflow does not try to fill device
     DIR = os.path.dirname(os.path.realpath(__file__))
 

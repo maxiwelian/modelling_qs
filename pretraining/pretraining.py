@@ -2,7 +2,6 @@
 from pyscf import gto
 import tensorflow as tf
 import pickle as pk
-
 import sys, os
 
 # Disable
@@ -42,10 +41,10 @@ class Pretrainer():
 
 
         try:
-            blockPrint()
+            # blockPrint()
             self.super_twist, self.mol = reader(pretrain_path)
             self.moT = self.super_twist.T
-            enablePrint()
+            # enablePrint()
         except:
             print('pretrain data does not exist...')
 

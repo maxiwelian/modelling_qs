@@ -3,7 +3,6 @@ import tensorflow.keras as tk
 import numpy as np
 from utils.utils import tofloat
 
-
 def initializer(in_dim, weight_shape, out_dim, _):
     minval = tf.maximum(-1., -(6/(in_dim+out_dim))**0.5)
     maxval = tf.minimum(1., (6/(in_dim+out_dim))**0.5)
@@ -242,11 +241,14 @@ def compute_ae_vectors(r_atoms, r_electrons):
     ae_vectors = r_electrons - r_atoms
     return ae_vectors
 
+@tf.custom_gradient
 def safe_norm(x):
-    if not x == 0.0:
-        return tf.norm(x, keepdims=True, axis=-1)
-    else:
-        return tf.expand_dims(tf.zeros(x.shape[:-1]), -1)
+    norm = tf.norm(x, keepdims=True, axis=-1)
+    def grad(dy):
+        g = x / tf.sqrt(tf.reduce_sum(x**2))
+        g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
+        return dy*g
+    return norm, grad
 
 # @tf.function
 def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, full_pairwise):
@@ -263,9 +265,11 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, ful
 
     # ** full pairwise
     if full_pairwise:
-        eye_mask = tf.expand_dims(tf.expand_dims(tf.eye(n_electrons, dtype=tf.bool), 0), -1)
-        tmp = tf.norm(ee_vectors, keepdims=True, axis=-1)
-        ee_distances = tf.where(eye_mask, tf.zeros_like(tmp), tmp)
+        # eye_mask = tf.expand_dims(tf.expand_dims(tf.eye(n_electrons, dtype=tf.bool), 0), -1)
+        # tmp = tf.where(eye_mask, 1., tf.norm(ee_vectors, keepdims=True, axis=-1))
+        # ee_distances = tf.where(eye_mask, tf.zeros_like(eye_mask, dtype=tf.float32), tmp)
+
+        ee_distances = safe_norm(ee_vectors)
         pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
         pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
     else:
