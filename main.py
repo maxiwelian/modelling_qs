@@ -4,6 +4,12 @@ def save_pretrain_model_and_samples(models, config, iteration):
     samples = tf.concat(ray.get([model.get_samples.remote() for model in models]), axis=0)
     save_samples(samples, config['pretrained_samples'].format(iteration + 1))
 
+def save_model_and_samples(models, config, iteration):
+    save_model(ray.get(models[0].get_weights.remote()), config['model_path'].format(iteration))
+    samples = tf.concat(ray.get([model.get_samples.remote() for model in models]), axis=0)
+    save_samples(samples, config['samples_path'].format(iteration))
+    return
+
 def main(config):
 
     n_iterations = config['n_iterations']
@@ -68,10 +74,15 @@ def main(config):
 
                 tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
+
                 step_forward(models, updates_lr)
 
             if iteration % config['log_every'] == 0:
                 log(models, updates, log_config, iteration, e_locs)
+
+            if iteration % config['save_every'] == 0:
+                save_model_and_samples(models, config, iteration)
+
     return
 
 
@@ -148,6 +159,7 @@ if __name__ == '__main__':
 
     # logging
     parser.add_argument('-le', '--log_every', default=1, type=int)
+    parser.add_argument('-se', '--save_every', default=5000, type=int)
 
     args = parser.parse_args()
     args.seed = True
@@ -185,7 +197,10 @@ if __name__ == '__main__':
         experiment += '_%s_%s%s%s' % (args.damping_method, args.conv_approx, model, fp)  # dmeth, conv_apprx etc
 
     path_experiment = os.path.join(exp_dir, experiment)
-    model_path = os.path.join(path_experiment, 'i%i.ckpt' % args.load_iteration)
+
+    model_path = os.path.join(path_experiment, 'i{}.ckpt')
+    samples_path = os.path.join(path_experiment, 'i{}.pk')
+
     pretrain_path = os.path.join(DIR, 'pretraining/data/%s/%s_data.p' % (args.system, args.system))
 
     # pretrain paths
@@ -225,6 +240,7 @@ if __name__ == '__main__':
 
               'experiment': path_experiment,
               'model_path': model_path,
+              'samples_path': samples_path,
 
               # values
               'r_atoms': r_atoms,

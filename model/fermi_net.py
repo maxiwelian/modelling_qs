@@ -99,6 +99,9 @@ class fermiNet(tk.Model):
         single, pairwise = compute_inputs(r_electrons, n_samples, ae_vectors, self.n_atoms, self.n_electrons, self.full_pairwise)
         single = self.input_mixer(single, pairwise, n_samples, self.n_electrons)
 
+        # dummy = tf.zeros((n_samples, self.n_electrons, self.nf_pairwise_in))
+        # pairwise = tf.concat((pairwise, dummy), axis=1)
+
         # --- input layer
         single, a_in_s, s_in_s = self.single_stream_in(single, n_samples, self.n_electrons)
         pairwise, a_in_p, s_in_p = self.pairwise_stream_in(pairwise, n_samples, self.n_pairwise)

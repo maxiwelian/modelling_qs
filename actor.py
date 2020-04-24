@@ -78,44 +78,6 @@ class Network(object):
         self.e_loc = tf.zeros(len(self.samples))
         self.amps = tf.zeros(len(self.samples))
 
-        @self._tf.function
-        def compute(r_electrons, model):
-            n_electrons = r_electrons.shape[1]
-            r_electrons = tf.reshape(r_electrons, (-1, n_electrons * 3))
-            r_s = [r_electrons[..., i] for i in range(r_electrons.shape[-1])]
-            with tf.GradientTape(True) as g:
-                [g.watch(r) for r in r_s]
-                r_electrons = tf.stack(r_s, -1)
-                r_electrons = tf.reshape(r_electrons, (-1, n_electrons, 3))
-                with tf.GradientTape(True) as gg:
-                    gg.watch(r_electrons)
-                    log_phi, _, _, _, _ = model(r_electrons)
-
-                dlogphi_dr = gg.gradient(log_phi, r_electrons)
-
-                tf.debugging.check_numerics(dlogphi_dr, 'dlogphidr')
-
-                dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons * 3))
-                grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
-            d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)
-            tf.debugging.check_numerics(d2logphi_dr2, 'd2logphi_dr2')
-            return dlogphi_dr ** 2, d2logphi_dr2
-
-        # @self._tf.function
-        # def compute(samples):
-        #     with tf.GradientTape() as g:
-        #         g.watch(samples)
-        #         psi, _, _, _, _ = self.model(samples)
-        #     grad = g.gradient(psi, samples)
-        #     print('CHECKING GRADS')
-        #     tf.debugging.check_numerics(grad, 'nans')
-
-        if config['full_pairwise']:
-
-            a, b = compute(self.samples, self.model)
-            tf.debugging.check_numerics(a, 'a')
-            tf.debugging.check_numerics(b, 'b')
-
     # gradients & energy
     def get_energy(self):
         self.samples, self.amps, self.acceptance = self.model_sampler.sample(self.samples)
