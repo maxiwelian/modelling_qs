@@ -65,11 +65,11 @@ def main(config):
                 grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
                 updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
 
-                for name in layers:
-                    tf.summary.scalar('kfac/maa_%s_mean' % name, tf.reduce_mean(tf.abs(m_aa[name])), iteration)
-                    tf.summary.scalar('kfac/mss_%s_mean' % name, tf.reduce_mean(tf.abs(m_ss[name])), iteration)
-                    tf.summary.scalar('kfac/maa_%s_max' % name, tf.reduce_max(tf.abs(m_aa[name])), iteration)
-                    tf.summary.scalar('kfac/mss_%s_max' % name, tf.reduce_max(tf.abs(m_ss[name])), iteration)
+                # for name in layers:
+                #     tf.summary.scalar('kfac/maa_%s_mean' % name, tf.reduce_mean(tf.abs(m_aa[name])), iteration)
+                #     tf.summary.scalar('kfac/mss_%s_mean' % name, tf.reduce_mean(tf.abs(m_ss[name])), iteration)
+                #     tf.summary.scalar('kfac/maa_%s_max' % name, tf.reduce_max(tf.abs(m_aa[name])), iteration)
+                #     tf.summary.scalar('kfac/mss_%s_max' % name, tf.reduce_max(tf.abs(m_ss[name])), iteration)
 
                 tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
@@ -110,6 +110,7 @@ if __name__ == '__main__':
     # hardware
     parser.add_argument('-gpu', '--n_gpus', default=1, type=int)
     parser.add_argument('--seed', help='', action='store_true')
+    parser.add_argument('--full_pairwise', help='', action='store_true')
 
     # pretraining
     parser.add_argument('-pi', '--n_pretrain_iterations', default=1000, type=int)
@@ -125,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('-dm', '--damping_method', help='ft or tikhonov', default='ft', type=str)
     parser.add_argument('-id', '--initial_damping', default=0.001, type=float)
     parser.add_argument('-nc', '--norm_constraint', default=0.001, type=float)
-    parser.add_argument('-ca', '--conv_approx', default='mg', type=str)
+    parser.add_argument('-ca', '--conv_approx', default='ba', type=str)
 
     # sampling
     parser.add_argument('-si', '--sampling_init', default=1., type=float)
@@ -158,11 +159,13 @@ if __name__ == '__main__':
     # python main.py -gpu 4 -o kfac -exp the1 -pi 2000 -bi 100 -i 100000 -dm ft -exp_dir the1 -ca ba
     # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
 
+    model = ''
     if args.half_model:
         args.n_samples = 1024
         args.nf_hidden_single = 128
         args.nf_hidden_pairwise = 32
         args.n_determinants = 16
+        model = 'hm'
 
     # generate the paths
     if args.local:
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     n_exps = len(os.listdir(exp_dir))
     experiment = '%s_%s_%s_%.4f_%i' % (args.exp, args.system, args.opt, args.lr0, n_exps)
     if args.opt == 'kfac':
-        experiment += '_%s_%s' % (args.damping_method, args.conv_approx)  # dmeth, conv_apprx etc
+        experiment += '_%s_%s_%s' % (args.damping_method, args.conv_approx, model)  # dmeth, conv_apprx etc
 
     path_experiment = os.path.join(exp_dir, experiment)
     model_path = os.path.join(path_experiment, 'i%i.ckpt' % args.load_iteration)

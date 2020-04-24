@@ -54,6 +54,7 @@ class KFAC_Actor():
             s_w = pre_activations[-1]
             pre_activations = [pa for pa in pre_activations[:-1]]
 
+        tf.debugging.check_numerics(e_loc_centered, 'grad')
         grads = tape.gradient(loss, model.trainable_weights)
         grads = [grad / float(n_samples) for grad in grads]
         n_s, n_a = grads[-1].shape[:2]
@@ -289,8 +290,6 @@ class Tikhonov():
         return vals_a, vecs_a, vals_s, vecs_s
 
 
-
-
 class FactoredTikhonov():
     def __init__(self):
         print('Factored Tikhonov damping')
@@ -298,10 +297,18 @@ class FactoredTikhonov():
     def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
         maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
 
+        # print(tf.reduce_mean(tf.abs(mss)), layer)
         inv_maa = tf.linalg.inv(maa)
         inv_mss = tf.linalg.inv(mss)
 
+        # tf.debugging.check_numerics(inv_maa, 'x')
+        # tf.debugging.check_numerics(inv_mss, 'a')
+
+        tf.debugging.check_numerics(g, layer)
+
         ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
+        # print(conv_factor)
+        tf.debugging.check_numerics(ng, layer)
         return ng
 
     def damp(self, m_aa, m_ss, conv_factor, damping, name, iteration):  # factored tikhonov damping

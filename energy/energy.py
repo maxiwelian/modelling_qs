@@ -38,7 +38,6 @@ def compute_potential_energy(r_atom, r_electron, z_atom, dtype=tf.float32):
 
 @tf.function
 def laplacian(model, r_electrons):
-
     n_electrons = r_electrons.shape[1]
     r_electrons = tf.reshape(r_electrons, (-1, n_electrons*3))
     r_s = [r_electrons[..., i] for i in range(r_electrons.shape[-1])]
@@ -49,7 +48,11 @@ def laplacian(model, r_electrons):
         with tf.GradientTape(True) as gg:
             gg.watch(r_electrons)
             log_phi, _, _, _, _ = model(r_electrons)
+
         dlogphi_dr = gg.gradient(log_phi, r_electrons)
+
+        # tf.debugging.check_numerics(dlogphi_dr, 'dlogphidr')
+
         dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons*3))
         grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]
     d2logphi_dr2 = tf.stack([g.gradient(grad, r) for grad, r in zip(grads, r_s)], -1)

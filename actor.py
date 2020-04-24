@@ -32,13 +32,14 @@ class Network(object):
         self.pretrainer = Pretrainer(**pretrainer_params)
 
         # * - sampling
-        self.sample_space = RandomWalker(tf.zeros(3),
+        self.sample_space = RandomWalker(gpu_id, tf.zeros(3),
                                          tf.eye(3) * config['sampling_init'],
                                          tf.zeros(3), tf.eye(3) * config['sampling_steps'], config['sampling_steps'])
 
         model_sampler_params = filter_dict(config, MetropolisHasting)
-        self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, **model_sampler_params)
+        self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, gpu_id, **model_sampler_params)
         self.samples = self.model_sampler.initialize_samples()
+        print('sample example: ', self.samples[0, 0, :])
         self.burn()
         self.pretrain_samples = self.model_sampler.initialize_samples()
         self.burn_pretrain()
@@ -48,6 +49,14 @@ class Network(object):
         self.n_layers = len(self.model.trainable_weights)
         self.layers = [w.name for w in self.model.trainable_weights]
         self.trainable_shapes = [w.shape for w in self.model.trainable_weights]
+
+        if config['full_pairwise']:
+            with self._tf.GradientTape() as g:
+                g.watch(self.samples)
+                psi, _, _, _, _ = self.model(self.samples)
+            grad = g.gradient(psi, self.samples)
+            print('CHECKING GRADS')
+            tf.debugging.check_numerics(grad, 'nans')
 
         # * - optimizers
         self.optimizer_pretrain = tf.keras.optimizers.Adam(learning_rate=0.001)

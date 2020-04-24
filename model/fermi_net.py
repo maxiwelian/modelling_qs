@@ -28,14 +28,19 @@ class fermiNet(tk.Model):
                  nf_hidden_single,
                  nf_hidden_pairwise,
                  n_determinants,
-                 env_init):
+                 env_init,
+                 full_pairwise):
 
         super(fermiNet, self).__init__()
 
         # --- initializations
         nf_single_in = 4 * n_atoms
-        n_pairwise = n_electrons ** 2 - n_electrons
-        # n_pairwise = n_electrons ** 2  # - n_electrons
+        self.full_pairwise = full_pairwise
+        if full_pairwise:
+            n_pairwise = n_electrons ** 2  # - n_electrons
+        else:
+            n_pairwise = n_electrons ** 2 - n_electrons
+
         nf_pairwise_in = 4
 
         nf_single_in_mixed = 3 * nf_single_in + 2 * nf_pairwise_in
@@ -54,24 +59,25 @@ class fermiNet(tk.Model):
         self.n_pairwise = n_pairwise
 
         # --- model
-        self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down)
+        self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down, full_pairwise)
+        nf_single_in = nf_single_in_mixed
 
-        self.single_stream_in = Stream(nf_single_in_mixed, nf_hidden_single, n_spins, gpu_id, 0)
+        self.single_stream_in = Stream(nf_single_in, nf_hidden_single, n_spins, gpu_id, 0)
         self.pairwise_stream_in = Stream(nf_pairwise_in, nf_hidden_pairwise, n_pairwise, gpu_id, 0)
-        self.mixer_in = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
+        self.mixer_in = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down, full_pairwise)
 
         self.s1 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 1)
         self.p1 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, gpu_id, 1)
-        self.m1 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
+        self.m1 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down, full_pairwise)
 
         self.s2 = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 2)
         self.p2 = Stream(nf_pairwise_intermediate_in, nf_hidden_pairwise, n_pairwise, gpu_id, 2)
-        self.m2 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down)
+        self.m2 = Mixer(n_electrons, nf_hidden_single, n_pairwise, nf_hidden_pairwise, n_spin_up, n_spin_down, full_pairwise)
 
-        self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 3)
+        # self.final_single_stream = Stream(nf_single_intermediate_in, nf_hidden_single, n_spins, gpu_id, 3)
 
         self.envelopes = \
-            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_hidden_single, n_determinants, env_init, gpu_id)
+            envelopesLayer(n_spin_up, n_spin_down, n_atoms, nf_single_intermediate_in, n_determinants, env_init, gpu_id)
 
         # self.output_layer = tf.Variable(initializer(n_determinants, (1,n_determinants,1,1), 1, _))
         # self.output_layer = tf.Variable(tf.ones((1, n_determinants, 1, 1))/n_determinants, name='w_1')
@@ -87,11 +93,11 @@ class fermiNet(tk.Model):
         # --- computing inputs
         # single_inputs: (b, n_electrons, 4), pairwise_inputs: (, n_pairwise, 4)
         ae_vectors = compute_ae_vectors(r_atoms, r_electrons)
-        single, pairwise = compute_inputs(r_electrons, n_samples, ae_vectors, self.n_atoms, self.n_electrons)
-        single_mix = self.input_mixer(single, pairwise, n_samples, self.n_electrons)
+        single, pairwise = compute_inputs(r_electrons, n_samples, ae_vectors, self.n_atoms, self.n_electrons, self.full_pairwise)
+        single = self.input_mixer(single, pairwise, n_samples, self.n_electrons)
 
         # --- input layer
-        single, a_in_s, s_in_s = self.single_stream_in(single_mix, n_samples, self.n_electrons)
+        single, a_in_s, s_in_s = self.single_stream_in(single, n_samples, self.n_electrons)
         pairwise, a_in_p, s_in_p = self.pairwise_stream_in(pairwise, n_samples, self.n_pairwise)
         single_mix = self.mixer_in(single, pairwise, n_samples, self.n_electrons)
 
@@ -109,20 +115,20 @@ class fermiNet(tk.Model):
         single_mix = self.m2(single, pairwise, n_samples, self.n_electrons)
 
         # --- final layer
-        tmp, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons)
-        single += tmp
+        # tmp, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons)
+        # single += tmp
 
         # --- envelopes
         spin_up_determinants, spin_down_determinants, a_up, s_up, a_down, s_down = \
-            self.envelopes(single, ae_vectors, n_samples)
+            self.envelopes(single_mix, ae_vectors, n_samples)
 
         # --- logabsdet
         log_psi, sign, a, s = log_abs_sum_det(spin_up_determinants, spin_down_determinants, self.output_layer)
 
         # yep # 7, 8, 9, 10, 11, 12 #
-        activation = (a_in_s, a_in_p, a_1_s, a_1_p, a_2_s, a_2_p, a_f,
+        activation = (a_in_s, a_in_p, a_1_s, a_1_p, a_2_s, a_2_p, # a_f,
                       a_up[0], a_up[1], a_up[2], a_down[0], a_down[1], a_down[2], a)
-        sensitivity = (s_in_s, s_in_p, s_1_s, s_1_p, s_2_s, s_2_p, s_f,
+        sensitivity = (s_in_s, s_in_p, s_1_s, s_1_p, s_2_s, s_2_p, # s_f,
                        s_up[0], s_up[1], s_up[2], s_down[0], s_down[1], s_down[2], s)
 
         return tf.squeeze(log_psi), activation, sensitivity, spin_up_determinants, spin_down_determinants
@@ -228,7 +234,7 @@ def compute_ae_vectors(r_atoms, r_electrons):
 
 
 # @tf.function
-def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
+def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, full_pairwise):
     # r_atoms: (n_atoms, 3)
     # r_electrons: (n_samples, n_electrons, 3)
     # ae_vectors: (n_samples, n_electrons, n_atoms, 3)
@@ -240,17 +246,23 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons):
     re2 = tf.transpose(re1, perm=(0, 2, 1, 3))
     ee_vectors = re1 - re2
 
-    mask = tf.eye(n_electrons, dtype=tf.bool)
-    mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
+    # ** full pairwise
+    if full_pairwise:
+        ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
+        pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
+        pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
+    else:
+        # ** partial pairwise
 
-    ee_vectors = tf.boolean_mask(ee_vectors, mask)
-    ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2 - n_electrons, 3))
-    ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
+        mask = tf.eye(n_electrons, dtype=tf.bool)
+        mask = ~tf.tile(tf.expand_dims(tf.expand_dims(mask, 0), 3), (n_samples, 1, 1, 3))
 
-    pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
+        ee_vectors = tf.boolean_mask(ee_vectors, mask)
+        ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2 - n_electrons, 3))
+        ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
 
-    # ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
-    # pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
+        pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
+
     return single_inputs, pairwise_inputs
 
 
@@ -258,7 +270,7 @@ class Mixer(tk.Model):
     """
     Mixes stream outputs to input into single streams
     """
-    def __init__(self, n_electrons, n_single_features, n_pairwise, n_pairwise_features, n_spin_up, n_spin_down):
+    def __init__(self, n_electrons, n_single_features, n_pairwise, n_pairwise_features, n_spin_up, n_spin_down, full_pairwise):
         super(Mixer, self).__init__()
 
         self.n_spin_up = tofloat(n_spin_up)
@@ -269,8 +281,12 @@ class Mixer(tk.Model):
         self.spin_up_mask = tf.concat((tmp1, tmp2), 1)
         self.spin_down_mask = ~self.spin_up_mask
 
-        self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
-            generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
+        if full_pairwise:
+            self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
+                generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
+        else:
+            self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
+                generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
 
     # @tf.function
     def call(self, single, pairwise, n_samples, n_electrons):
@@ -429,6 +445,7 @@ def _log_abs_sum_det_fwd(a, b, w):
 
     sensitivities = tf.exp(-log_psi) * sign_unshifted_sum
     # sensitivities = tf.exp(xmax-log_psi) * sign_shifted_sum
+
     dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 
     return log_psi, sign_shifted_sum, unshifted_exp, sensitivities, \
@@ -553,6 +570,38 @@ def log_abs_sum_det(a, b, w):
 
     return (log_psi, sign, act, sens), _first_order_grad
 
+# pairwise masks
+# n_pairwise
+# compute the inputs
+#
+def generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
+    ups = np.ones(n_electrons, dtype=np.bool)
+    ups[n_spin_up:] = False
+    downs = ~ups
+
+    spin_up_mask = []
+    spin_down_mask = []
+    mask = np.zeros((n_electrons, n_electrons), dtype=np.bool)
+
+    for electron in range(n_electrons):
+        mask_up = np.copy(mask)
+        mask_up[electron, :] = ups
+        spin_up_mask.append(mask_up)
+
+        mask_down = np.copy(mask)
+        mask_down[electron, :] = downs
+        spin_down_mask.append(mask_down)
+
+    spin_up_mask = tf.convert_to_tensor(spin_up_mask, dtype=tf.bool)
+    # (n_samples, n_electrons, n_electrons, n_pairwise_features)
+    spin_up_mask = tf.reshape(spin_up_mask, (1, n_electrons, n_pairwise, 1))
+    spin_up_mask = tf.tile(spin_up_mask, (1, 1, 1, n_pairwise_features))
+
+    spin_down_mask = tf.convert_to_tensor(spin_down_mask, dtype=tf.bool)
+    spin_down_mask = tf.reshape(spin_down_mask, (1, n_electrons, n_pairwise, 1))
+    spin_down_mask = tf.tile(spin_down_mask, (1, 1, 1, n_pairwise_features))
+
+    return spin_up_mask, spin_down_mask
 
 def generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
     eye_mask = ~np.eye(n_electrons, dtype=np.bool)

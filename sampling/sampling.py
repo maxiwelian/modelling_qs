@@ -23,7 +23,7 @@ class MVGaussian(tfp.distributions.MultivariateNormalFullCovariance, SampleDistr
 
 
 class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDistribution):
-    def __init__(self, mu, sigma, step_mu=None, step_sigma=None, sigma_normal=None):
+    def __init__(self, gpu_id, mu, sigma, step_mu=None, step_sigma=None, sigma_normal=None):
         super(RandomWalker, self).__init__(mu, sigma)
 
         if step_mu is None:
@@ -31,13 +31,14 @@ class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDis
         if step_sigma is None:
             step_sigma = sigma
 
+        self.gpu_id = gpu_id
         self.step_sigma = sigma_normal
         # self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
 
     @tf.function
     def resample(self, prev_sample):
         # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
-        return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma)  # faster
+        return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma, seed=self.gpu_id)  # faster
 
 
 class MetropolisHasting:
@@ -45,6 +46,7 @@ class MetropolisHasting:
                  model,
                  pretrainer,
                  distr: SampleDistribution,
+                 gpu_id,
                  n_samples: int,
                  n_electrons: int,
                  correlation_length: int,
@@ -55,6 +57,7 @@ class MetropolisHasting:
                  n_spin_up: int):
 
         # super(MetropolisHasting, self).__init__()
+        self.gpu_id = gpu_id
         self.n_samples = n_samples
         self.n_electrons = n_electrons
         self.correlation_length = correlation_length
@@ -102,7 +105,7 @@ class MetropolisHasting:
             # update sample
             alpha = new_prob / curr_prob
 
-            mask = alpha > self.alpha_distr.sample(alpha.shape)
+            mask = alpha > self.alpha_distr.sample(alpha.shape, seed=self.gpu_id)
             stacked_mask = tf.tile(tf.reshape(mask, (-1, 1, 1)), (1, *new_sample.shape[1:]))
 
             curr_sample = tf.where(stacked_mask, new_sample, curr_sample)

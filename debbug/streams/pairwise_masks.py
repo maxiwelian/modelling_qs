@@ -5,6 +5,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import tensorflow as tf
 
 
+
+
 def generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
     ups = np.ones(n_electrons, dtype=np.bool)
     ups[n_spin_up:] = False
