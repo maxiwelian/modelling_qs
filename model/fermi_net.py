@@ -245,7 +245,7 @@ def compute_ae_vectors(r_atoms, r_electrons):
 def safe_norm(x):
     norm = tf.norm(x, keepdims=True, axis=-1)
     def grad(dy):
-        g = x / tf.sqrt(tf.reduce_sum(x**2))
+        g = x / norm
         g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
         return dy*g
     return norm, grad
