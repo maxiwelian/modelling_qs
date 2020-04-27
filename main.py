@@ -256,7 +256,7 @@ if __name__ == '__main__':
     n_exps = len(os.listdir(exp_dir))
     experiment = '%s_%s_%s_%.4f_%i' % (args.exp, args.system, args.opt, args.lr0, n_exps)
     if args.opt == 'kfac':
-        experiment += '_%s_%s%s%s' % (args.damping_method, args.conv_approx, model, fp)  # dmeth, conv_apprx etc
+        experiment += '_%s_%s%s%s%s%s' % (args.damping_method, args.conv_approx, model, fp, mf, mi)  # dmeth, conv_apprx etc
 
     path_experiment = os.path.join(exp_dir, experiment)
 
