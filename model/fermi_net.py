@@ -295,6 +295,7 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, ful
     # r_electrons: (n_samples, n_electrons, 3)
     # ae_vectors: (n_samples, n_electrons, n_atoms, 3)
     ae_distances = tf.norm(ae_vectors, axis=-1, keepdims=True)
+    print(ae_distances.shape)
     single_inputs = tf.concat((ae_vectors, ae_distances), axis=-1)
     single_inputs = tf.reshape(single_inputs, (-1, n_electrons, 4*n_atoms))
 

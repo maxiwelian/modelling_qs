@@ -32,7 +32,8 @@ class Network(object):
 
         ferminet_params = filter_dict(config, fermiNet)
         self.model = fermiNet(gpu_id, **ferminet_params)
-        self.confirm_antisymmetric(config)
+        if config['system'] == 'Be':
+            self.confirm_antisymmetric(config)
         print('initialized model')
 
         # * - pretraining
