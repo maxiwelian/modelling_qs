@@ -159,7 +159,7 @@ class fermiNet(tk.Model):
             sensitivity = (s_in_s, s_in_p, s_1_s, s_1_p, s_2_s, s_2_p, s_f,
                            s_up[0], s_up[1], s_up[2], s_down[0], s_down[1], s_down[2], s)
 
-        return tf.squeeze(log_psi), activation, sensitivity, spin_up_determinants, spin_down_determinants
+        return tf.squeeze(log_psi), sign, activation, sensitivity, spin_up_determinants, spin_down_determinants
 
 
 

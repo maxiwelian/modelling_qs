@@ -1,26 +1,6 @@
 import ray
 
-# def confirm_antisymmetric(models, config):
-#     samples = np.random.normal(size=(1, config['n_electrons'], 3))
-#     # take some amplitudes
-#     amps, sign = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples))
-#
-#     # swap the electrons up up / up down
-#     new_idxs = [1, 0, 2, 3]
-#     samples_upup = samples[:, new_idxs, :]
-#     amps_upup, sign_upup = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples_upup))
-#
-#     new_idxs = [0, 1, 2, 3]
-#     samples_updown = samples[:, new_idxs, :]
-#     amps_updown = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples_updown))
-#
-#     # take some more amplites
-#     print(amps)
-#     print(amps_upup)
-#     print(amps_updown)
-#     sleep(50)
-#     # compare
-#     return
+
 
 
 
@@ -32,6 +12,8 @@ class Network(object):
         import tensorflow as tf
         self._tf = tf
         import numpy as np
+        self._np = np
+
         from time import time, sleep
 
         from sampling.sampling import MetropolisHasting, RandomWalker
@@ -50,26 +32,7 @@ class Network(object):
 
         ferminet_params = filter_dict(config, fermiNet)
         self.model = fermiNet(gpu_id, **ferminet_params)
-        # samples = np.random.normal(size=(1, config['n_electrons'], 3))
-        # # take some amplitudes
-        # amps, sign = self.get_amplitudes_of_these_samples(samples)
-        #
-        # # swap the electrons up up / up down
-        # new_idxs = [1, 0, 2, 3]
-        # samples_upup = samples[:, new_idxs, :]
-        # amps_upup, sign_upup = self.get_amplitudes_of_these_samples(samples_upup)
-        #
-        # # new_idxs = [0, 1, 2, 3]
-        # # samples_updown = samples[:, new_idxs, :]
-        # # amps_updown, _ = self.get_amplitudes_of_these_samples(samples_updown)
-        #
-        # # take some more amplites
-        # print(sign)
-        # print(sign_upup)
-        # # print(sign_updown)
-        # sleep(50)
-        # # compare
-
+        self.confirm_antisymmetric(config)
         print('initialized model')
 
         # * - pretraining
@@ -237,7 +200,24 @@ class Network(object):
         e_loc = self._compute_local_energy(self.r_atoms, self.validation_samples, self.z_atoms, self.model)
         return e_loc
 
+
     def get_amplitudes_of_these_samples(self, samples):
         samples = self._tf.convert_to_tensor(samples, dtype=self._tf.float32)
         amps, sign, _, _, _, _ = self.model(samples)
         return amps, sign
+
+
+    def confirm_antisymmetric(self, config):
+        samples = self._np.random.normal(size=(1, config['n_electrons'], 3))
+        # take some amplitudes
+        amps, sign = self.get_amplitudes_of_these_samples(samples)
+
+        # swap the electrons up up / up down
+        new_idxs = [1, 0, 3, 2]
+        samples_upup = samples[:, new_idxs, :]
+        amps_upup, sign_upup = self.get_amplitudes_of_these_samples(samples_upup)
+
+        diff = self._tf.reduce_mean(self._tf.abs(amps - amps_upup))
+        print('is the wf antsymmetric? ', diff)
+        assert diff < 1e-7
+        return

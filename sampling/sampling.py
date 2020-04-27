@@ -91,7 +91,7 @@ class MetropolisHasting:
     @tf.function
     def sample(self, curr_sample):
 
-        curr_log_amp, _, _, _, _ = self.model(curr_sample)
+        curr_log_amp, _, _, _, _, _ = self.model(curr_sample)
         curr_prob = MetropolisHasting.to_prob(curr_log_amp)
 
         acceptance_total = 0.
@@ -99,7 +99,7 @@ class MetropolisHasting:
 
             # next sample
             new_sample = self.distr.resample(curr_sample)
-            new_log_amp, _, _, _, _ = self.model(new_sample)
+            new_log_amp, _, _, _, _, _ = self.model(new_sample)
             new_prob = MetropolisHasting.to_prob(new_log_amp)
 
             # update sample
@@ -122,7 +122,7 @@ class MetropolisHasting:
     def sample_mixed_dist(self, curr_sample):
 
         # curr_sample = self.curr_sample
-        curr_log_amp, _, _, _, _ = self.model(curr_sample)
+        curr_log_amp, _, _, _, _, _ = self.model(curr_sample)
         curr_prob = MetropolisHasting.to_prob(curr_log_amp)
         hf_prob = self.pretrainer.compute_det_probability(curr_sample)  # call numpy to take out of graph
         curr_prob = 0.5*(curr_prob + hf_prob)
@@ -131,7 +131,7 @@ class MetropolisHasting:
         for _ in range(self.correlation_length):
             # next sample
             new_sample = self.distr.resample(curr_sample)
-            new_log_amp, _, _, _, _ = self.model(new_sample)
+            new_log_amp, _, _, _, _, _ = self.model(new_sample)
             hf_prob = self.pretrainer.compute_det_probability(new_sample)  # call numpy to take out of graph
             new_prob = 0.5*(MetropolisHasting.to_prob(new_log_amp) + hf_prob)
 
@@ -157,7 +157,7 @@ class MetropolisHasting:
         curr_sample_model, curr_sample_hf = tf.squeeze(sams[0]), tf.squeeze(sams[1])
 
         # curr_sample = self.curr_sample
-        curr_log_amp, _, _, _, _ = self.model(curr_sample_model)
+        curr_log_amp, _, _, _, _, _ = self.model(curr_sample_model)
         curr_prob_model = MetropolisHasting.to_prob(curr_log_amp)
         curr_prob_hf = self.pretrainer.compute_orbital_probability(curr_sample_hf)  # call numpy to take out of graph
 
@@ -165,7 +165,7 @@ class MetropolisHasting:
         for _ in range(self.correlation_length):
             # --- next sample
             new_sample_model = self.distr.resample(curr_sample_model)
-            new_log_amp, _, _, _, _ = self.model(new_sample_model)
+            new_log_amp, _, _, _, _, _ = self.model(new_sample_model)
             new_prob_model = MetropolisHasting.to_prob(new_log_amp)
 
             new_sample_hf = self.distr.resample(curr_sample_hf)

@@ -99,7 +99,7 @@ class Pretrainer():
         up_dets = tile_labels(up_dets, self.n_determinants)
         down_dets = tile_labels(down_dets, self.n_determinants)
         with tf.GradientTape() as t:
-            _, _, _, model_up_dets, model_down_dets = model(samples)
+            _, _, _, _, model_up_dets, model_down_dets = model(samples)
             loss = tf.keras.losses.MSE(up_dets, model_up_dets)
             loss += tf.keras.losses.MSE(down_dets, model_down_dets)
         grads = t.gradient(loss, model.trainable_weights[:-1])

@@ -72,7 +72,7 @@ def laplacian(model, r_electrons):
         r_electrons = tf.reshape(r_electrons, (-1, n_electrons, 3))
         with tf.GradientTape(True) as gg:
             gg.watch(r_electrons)
-            log_phi, _, _, _, _ = model(r_electrons)
+            log_phi, _, _, _, _, _ = model(r_electrons)
         dlogphi_dr = gg.gradient(log_phi, r_electrons)
         dlogphi_dr = tf.reshape(dlogphi_dr, (-1, n_electrons*3))
         grads = [dlogphi_dr[..., i] for i in range(dlogphi_dr.shape[-1])]

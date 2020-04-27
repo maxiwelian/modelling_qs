@@ -5,7 +5,7 @@ def expand(tensor, shape):
 
 def extract_grads(model, inp, e_loc_centered, n_samples):
     with tf.GradientTape() as tape:
-        out, _, _, _, _ = model(inp)
+        out, _, _, _, _, _ = model(inp)
         loss = out * e_loc_centered
     grads = tape.gradient(loss, model.trainable_weights)
     return [grad / n_samples for grad in grads]
@@ -49,7 +49,7 @@ class KFAC_Actor():
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
 
         with tf.GradientTape(True) as tape:
-            out, activations, pre_activations, _, _ = model(inp)
+            out, _, activations, pre_activations, _, _ = model(inp)
             loss = out * e_loc_centered
             s_w = pre_activations[-1]
             pre_activations = [pa for pa in pre_activations[:-1]]
@@ -167,7 +167,7 @@ class KFAC_Actor():
         return a  # stream, pi
 
     def extract_m_xx_shapes(self, model):
-        _, activations, pre_activations, _, _ = model(tf.random.uniform((1, self.n_spins, 3)))
+        _, _, activations, pre_activations, _, _ = model(tf.random.uniform((1, self.n_spins, 3)))
 
         a_shapes, s_shapes = [], []
         for a, s, name in zip(activations, pre_activations, self.layers):
