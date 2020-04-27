@@ -1,14 +1,53 @@
 
+
 def save_pretrain_model_and_samples(models, config, iteration):
     save_model(ray.get(models[0].get_weights.remote()), config['pretrained_model'].format(iteration + 1))
     samples = tf.concat(ray.get([model.get_samples.remote() for model in models]), axis=0)
     save_samples(samples, config['pretrained_samples'].format(iteration + 1))
+
 
 def save_model_and_samples(models, config, iteration):
     save_model(ray.get(models[0].get_weights.remote()), config['model_path'].format(iteration))
     samples = tf.concat(ray.get([model.get_samples.remote() for model in models]), axis=0)
     save_samples(samples, config['samples_path'].format(iteration))
     return
+
+
+def compute_energy(models, config):
+    load_models(models, config['load_model_path'])
+    load_samples(models, config['load_samples_path'])
+    e_locs, new_mean, new_std = get_energy_of_current_samples(models)
+    print('initial mean ', new_mean)
+
+    e_locs = []
+    e_overall_mean = 0
+    e_overall_std = 0
+
+    burn(models, config['n_burn_in'])
+
+    means = []
+    for i in range(config['n_iterations']):
+        _, e_mean, e_std = get_energy(models)
+        amplitudes, acceptance, samples, e_loc = get_info(models)
+
+        e_locs.append(e_mean)
+        rolling_mean = compute_rolling_mean(e_overall_mean, i, e_mean)
+        rolling_std = compute_rolling_std(e_overall_std, e_overall_mean, i, e_std, e_mean)
+
+        e_overall_mean = tf.reduce_mean(e_locs)
+        total_samples = config['n_samples'] * (i + 1)
+        print('overall: ', e_overall_mean.numpy(),
+              'rolling_mean: ', rolling_mean,
+              'n_samples: ', total_samples,
+              'e_std: ', e_std.numpy(),
+              'rolling_std: ', rolling_std,
+              'sem: ', rolling_std / np.sqrt(total_samples),
+              'acceptance: ', acceptance)
+
+        means.append(e_overall_mean)
+    with open(os.path.join(config['load_directory'], 'means.pk'), 'wb') as f:
+        pk.dump(means, f)
+
 
 def main(config):
 
@@ -18,6 +57,11 @@ def main(config):
 
     # create the actors on the available gpus
     models = [Network.remote(config, _) for _ in range(n_gpus)]
+
+    # compute the energy if thats whats up
+    if config['compute_energy']:
+        compute_energy(models, config)
+        exit()
 
     n_params, n_layers, trainable_shapes, layers = ray.get(models[0].get_model_details.remote())
 
@@ -30,8 +74,10 @@ def main(config):
 
     writer = tf.summary.create_file_writer(config['experiment'])
     with writer.as_default():
+
         if config['load_iteration'] > 0: # load the model
-            load_models(models, config['saved_model'])
+            load_models(models, config['load_model_path'])
+            load_samples(models, config['load_samples_path'])
 
         else:  # pretrain the model
             if os.path.exists(config['pretrained_model']) and os.path.exists(config['pretrained_samples'])\
@@ -45,8 +91,8 @@ def main(config):
 
                 iteration = 0
                 for iteration in range(config['n_pretrain_iterations']):
-                    new_grads = get_pretrain_grads(models)
-                    update_weights_pretrain(models, new_grads)
+                    grads = get_pretrain_grads(models)
+                    update_weights_pretrain(models, grads)
                     [model.sample.remote() for model in models]
 
                     print('pretrain iteration %i...' % iteration)
@@ -82,6 +128,9 @@ def main(config):
 
             if iteration % config['save_every'] == 0:
                 save_model_and_samples(models, config, iteration)
+                _ = ray.get([model.compute_validation_energy.remote() for model in models])
+                tf.summary.scalar('energy/validation_energy', tf.reduce_mean(_), iteration)
+
 
     return
 
@@ -96,7 +145,7 @@ if __name__ == '__main__':
     DIR = os.path.dirname(os.path.realpath(__file__))
 
     import argparse
-    from time import time
+    from time import time, sleep
 
     import tensorflow as tf
 
@@ -105,7 +154,7 @@ if __name__ == '__main__':
     from actor_proxy import get_grads, update_weights_optimizer  # adam
     from actor_proxy import get_grads_and_maa_and_mss, step_forward  # kfac
     from actor_proxy import burn, burn_pretrain  # sampling
-    from actor_proxy import get_energy  # energy
+    from actor_proxy import get_energy, get_energy_of_current_samples  # energy
 
     from model.gradients import KFAC
 
@@ -117,7 +166,7 @@ if __name__ == '__main__':
     # hardware
     parser.add_argument('-gpu', '--n_gpus', default=1, type=int)
     parser.add_argument('--seed', help='', action='store_true')
-    parser.add_argument('--full_pairwise', help='', action='store_true')
+    parser.add_argument('--compute_energy', help='', action='store_true')
 
     # pretraining
     parser.add_argument('-pi', '--n_pretrain_iterations', default=1000, type=int)
@@ -150,12 +199,16 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--nf_hidden_pairwise', default=32, type=int)
     parser.add_argument('-k', '--n_determinants', default=16, type=int)
     parser.add_argument('-ei', '--env_init', default=1., type=float)
+    parser.add_argument('--mix_final', help='', action='store_true')
+    parser.add_argument('--full_pairwise', help='', action='store_true')
+    parser.add_argument('--mix_input', help='', action='store_true')
 
     # paths
     parser.add_argument('-l', '--load_iteration', default=0, type=int)
     parser.add_argument('-exp_dir', '--exp_dir', default='', type=str)
     parser.add_argument('-exp', '--exp', default='', type=str)
     parser.add_argument('--local', help='is local', action='store_true')
+    parser.add_argument('-ld', '--load_directory', default='')
 
     # logging
     parser.add_argument('-le', '--log_every', default=1, type=int)
@@ -163,6 +216,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     args.seed = True
+    args.n_iterations += 1
 
     # python main.py -gpu 4 -o kfac -exp the1 -pi 2000 -bi 100 -i 100000 -dm ft -exp_dir the1 -ca ba
     # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
@@ -173,11 +227,19 @@ if __name__ == '__main__':
         args.nf_hidden_single = 128
         args.nf_hidden_pairwise = 32
         args.n_determinants = 16
-        model = '_hm_'
+        model = '_hm'
 
     fp = ''
     if args.full_pairwise:
-        fp = '_fp_'
+        fp = '_fp'
+
+    mf = ''
+    if args.mix_final:
+        mf = '_mf'
+
+    mi = ''
+    if args.mix_input:
+        mi = '_mi'
 
     # generate the paths
     if args.local:
@@ -198,6 +260,8 @@ if __name__ == '__main__':
 
     path_experiment = os.path.join(exp_dir, experiment)
 
+    load_model_path = os.path.join(args.load_directory, 'i{}.ckpt').format(args.load_iteration)
+    load_samples_path = os.path.join(args.load_directory, 'i{}.pk').format(args.load_iteration)
     model_path = os.path.join(path_experiment, 'i{}.ckpt')
     samples_path = os.path.join(path_experiment, 'i{}.pk')
 
@@ -208,10 +272,11 @@ if __name__ == '__main__':
     if not os.path.exists(pretrain_dir):
         os.makedirs(pretrain_dir)
 
-    pretrain_tag = (args.n_pretrain_iterations, args.nf_hidden_single, args.nf_hidden_pairwise, args.n_determinants)
-    name = 'pm_%i_%i_%i_%i.pk' % pretrain_tag
+    pretrain_tag = (args.n_pretrain_iterations, args.nf_hidden_single, args.nf_hidden_pairwise, args.n_determinants,
+                    fp, mf, mi)
+    name = 'pm_%i_%i_%i_%i%s%s%s.pk' % pretrain_tag
     path_pretrained_model = os.path.join(pretrain_dir, name)
-    name = 'ps_%i_%i_%i_%i.pk' % pretrain_tag
+    name = 'ps_%i_%i_%i_%i%s%s%s.pk' % pretrain_tag
     path_pretrained_samples = os.path.join(pretrain_dir, name)
 
     # merge the dictionaries
@@ -241,6 +306,8 @@ if __name__ == '__main__':
               'experiment': path_experiment,
               'model_path': model_path,
               'samples_path': samples_path,
+              'load_model_path': load_model_path,
+              'load_samples_path': load_samples_path,
 
               # values
               'r_atoms': r_atoms,
@@ -251,11 +318,12 @@ if __name__ == '__main__':
     config = dict(args_config, **config)
     config = dict(config, **system_config)
 
-    if not os.path.exists(path_experiment):
-        os.makedirs(path_experiment)
+    if not config['compute_energy']:
+        if not os.path.exists(path_experiment):
+            os.makedirs(path_experiment)
 
-    with open(os.path.join(path_experiment, 'config.pk'), 'wb') as f:
-        pk.dump(config, f)
+        with open(os.path.join(path_experiment, 'config.pk'), 'wb') as f:
+            pk.dump(config, f)
 
     main(config)
 

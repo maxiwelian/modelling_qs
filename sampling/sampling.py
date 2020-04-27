@@ -33,12 +33,12 @@ class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDis
 
         self.gpu_id = gpu_id
         self.step_sigma = sigma_normal
-        # self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
+        self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
 
     @tf.function
     def resample(self, prev_sample):
-        # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
-        return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma, seed=self.gpu_id)  # faster
+        return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
+        # return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma, seed=self.gpu_id)  # faster
 
 
 class MetropolisHasting:
@@ -105,7 +105,9 @@ class MetropolisHasting:
             # update sample
             alpha = new_prob / curr_prob
 
-            mask = alpha > self.alpha_distr.sample(alpha.shape, seed=self.gpu_id)
+            # mask = alpha > self.alpha_distr.sample(alpha.shape, seed=self.gpu_id)
+            mask = alpha > self.alpha_distr.sample(alpha.shape)
+
             stacked_mask = tf.tile(tf.reshape(mask, (-1, 1, 1)), (1, *new_sample.shape[1:]))
 
             curr_sample = tf.where(stacked_mask, new_sample, curr_sample)

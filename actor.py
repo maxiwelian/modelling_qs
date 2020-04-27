@@ -1,13 +1,38 @@
 import ray
 
+# def confirm_antisymmetric(models, config):
+#     samples = np.random.normal(size=(1, config['n_electrons'], 3))
+#     # take some amplitudes
+#     amps, sign = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples))
+#
+#     # swap the electrons up up / up down
+#     new_idxs = [1, 0, 2, 3]
+#     samples_upup = samples[:, new_idxs, :]
+#     amps_upup, sign_upup = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples_upup))
+#
+#     new_idxs = [0, 1, 2, 3]
+#     samples_updown = samples[:, new_idxs, :]
+#     amps_updown = ray.get(models[0].get_amplitudes_of_these_samples.remote(samples_updown))
+#
+#     # take some more amplites
+#     print(amps)
+#     print(amps_upup)
+#     print(amps_updown)
+#     sleep(50)
+#     # compare
+#     return
+
+
+
 @ray.remote(num_gpus=1)
 class Network(object):
     def __init__(self, config, gpu_id):
         self.gpu_id = gpu_id
 
         import tensorflow as tf
+        self._tf = tf
         import numpy as np
-        from time import time
+        from time import time, sleep
 
         from sampling.sampling import MetropolisHasting, RandomWalker
         from model.fermi_net import fermiNet
@@ -25,6 +50,26 @@ class Network(object):
 
         ferminet_params = filter_dict(config, fermiNet)
         self.model = fermiNet(gpu_id, **ferminet_params)
+        # samples = np.random.normal(size=(1, config['n_electrons'], 3))
+        # # take some amplitudes
+        # amps, sign = self.get_amplitudes_of_these_samples(samples)
+        #
+        # # swap the electrons up up / up down
+        # new_idxs = [1, 0, 2, 3]
+        # samples_upup = samples[:, new_idxs, :]
+        # amps_upup, sign_upup = self.get_amplitudes_of_these_samples(samples_upup)
+        #
+        # # new_idxs = [0, 1, 2, 3]
+        # # samples_updown = samples[:, new_idxs, :]
+        # # amps_updown, _ = self.get_amplitudes_of_these_samples(samples_updown)
+        #
+        # # take some more amplites
+        # print(sign)
+        # print(sign_upup)
+        # # print(sign_updown)
+        # sleep(50)
+        # # compare
+
         print('initialized model')
 
         # * - pretraining
@@ -43,6 +88,9 @@ class Network(object):
         self.burn()
         self.pretrain_samples = self.model_sampler.initialize_samples()
         self.burn_pretrain()
+
+        self.validation_samples = self.model_sampler.initialize_samples()
+
 
         # * - model details
         self.n_params = np.sum([np.prod(v.get_shape().as_list()) for v in self.model.trainable_weights])
@@ -67,7 +115,7 @@ class Network(object):
         # store references to avoid reimport
         self._extract_grads = extract_grads
         self._tofloat = tofloat
-        self._tf = tf
+
         self._compute_local_energy, self._clip = compute_local_energy, clip
         self._time = time
         self._load_model = load_model
@@ -78,11 +126,19 @@ class Network(object):
         self.e_loc = tf.zeros(len(self.samples))
         self.amps = tf.zeros(len(self.samples))
 
+        self.compute_validation_energy()
+
     # gradients & energy
     def get_energy(self):
         self.samples, self.amps, self.acceptance = self.model_sampler.sample(self.samples)
         self.e_loc = self._compute_local_energy(self.r_atoms, self.samples, self.z_atoms, self.model)
         return self.e_loc
+
+    # gradients & energy
+    def get_energy_of_current_samples(self):
+        self.e_loc = self._compute_local_energy(self.r_atoms, self.samples, self.z_atoms, self.model)
+        return self.e_loc
+
 
     def get_pretrain_grads(self):
         self.pretrain_samples, _, _ = self.model_sampler.sample_mixed(self.pretrain_samples)
@@ -174,3 +230,14 @@ class Network(object):
         stop = start + self.n_samples
         self.samples = \
             self._tf.convert_to_tensor(self._load_sample(path)[start:stop, ...])
+
+    def compute_validation_energy(self):
+        for _ in range(10):
+            self.validation_samples = self.model_sampler.burn(self.validation_samples)
+        e_loc = self._compute_local_energy(self.r_atoms, self.validation_samples, self.z_atoms, self.model)
+        return e_loc
+
+    def get_amplitudes_of_these_samples(self, samples):
+        samples = self._tf.convert_to_tensor(samples, dtype=self._tf.float32)
+        amps, sign, _, _, _, _ = self.model(samples)
+        return amps, sign

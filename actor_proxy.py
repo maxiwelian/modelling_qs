@@ -6,8 +6,9 @@ import ray
 
 # sampling
 def burn(models, n_burns):
-    for _ in range(n_burns):
+    for i in range(n_burns):
         [model.burn.remote() for model in models]
+        print('burn %i...' % i)
 
 
 def burn_pretrain(models, n_burns):
@@ -88,6 +89,14 @@ def step_forward(models, updates):
 # energy
 def get_energy(models):
     e_locs = ray.get([model.get_energy.remote() for model in models])
+    e_loc = tf.concat(e_locs, axis=0)
+    e_mean = tf.reduce_mean(e_loc)
+    e_std = tf.math.reduce_std(e_loc)
+    return e_loc, e_mean, e_std
+
+# energy
+def get_energy_of_current_samples(models):
+    e_locs = ray.get([model.get_energy_of_current_samples.remote() for model in models])
     e_loc = tf.concat(e_locs, axis=0)
     e_mean = tf.reduce_mean(e_loc)
     e_std = tf.math.reduce_std(e_loc)

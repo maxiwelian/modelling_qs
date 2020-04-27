@@ -4,13 +4,17 @@ import tensorflow as tf
 tf.random.set_seed(1)
 
 def compare(t1, t2):
-    return tf.reduce_sum(tf.abs(t1 - t2))
+    return tf.reduce_mean(tf.abs(t1 - t2))
 
 @tf.custom_gradient
 def safe_norm_grad(x, norm):
     # x : (n, ne**2, 3)
     # norm : (n, ne**2, 1)
+    print(x.shape, norm.shape)
+    # tf.debugging.check_numerics(x, 'x')
+    # tf.debugging.check_numerics(norm, 'norm')
     g = x / norm
+    # tf.debugging.check_numerics(g, 'g')
     g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
     cache = (x, norm)
 
@@ -35,11 +39,17 @@ def safe_norm(x):
         return dy*g
     return norm, grad
 
-n_samples = 10
-n_electrons = 4
-x = tf.random.uniform((n_samples, n_electrons, 3))
+n_samples = 1000
+n_electrons = 8
+x = tf.random.normal((n_samples, n_electrons, 3), stddev=2., mean=2.)
+# z = tf.random.normal(x.shape)
+
 x = tf.expand_dims(x, 2)
+# z = tf.expand_dims(z, 1)
+
 x = x - tf.transpose(x, perm=(0, 2, 1, 3))
+# x = x - z
+
 x = tf.reshape(x, (-1, n_electrons**2, 3))
 # x = tf.zeros((n_samples, n_electrons, 3))
 
@@ -47,25 +57,27 @@ with tf.GradientTape() as g:
     g.watch(x)
     with tf.GradientTape() as gg:
         gg.watch(x)
-        y = tf.linalg.norm(x, keepdims=True, axis=-1)
-    g1 = gg.gradient(y, x)
+        y1 = tf.linalg.norm(x, keepdims=True, axis=-1)
+    g1 = gg.gradient(y1, x)
 g2 = g.gradient(g1, x)
-print(g1, g2)
+# print(g1, g2)
 
 with tf.GradientTape() as g:
     g.watch(x)
     with tf.GradientTape() as gg:
         gg.watch(x)
-        y = safe_norm(x)
-    g11 = gg.gradient(y, x)
+        y11 = safe_norm(x)
+    g11 = gg.gradient(y11, x)
 g22 = g.gradient(g11, x)
-print(g11, g22)
+# print(g11, g22)
 # print(g22)
 
-g1 = tf.where(tf.math.is_nan(g1), tf.zeros_like(g1), g1)
-g2 = tf.where(tf.math.is_nan(g2), tf.zeros_like(g2), g2)
+# g1 = tf.where(tf.math.is_nan(g1), tf.zeros_like(g1), g1)
+# g2 = tf.where(tf.math.is_nan(g2), tf.zeros_like(g2), g2)
 
-for a, b in zip(g2, g22):
-    print(a[1], b[1])
+# for a, b in zip(g2, g22):
+#     print(a[1], b[1])
+
+print(compare(y1, y11))
 print(compare(g1, g11))
 print(compare(g2, g22))

@@ -194,10 +194,14 @@ def log(models, updates, log_config, iteration, e_locs):
 
     if iteration < 10:
         median = e_locs[iteration]
+        mean_last_10 = np.mean(e_locs)
     else:
         last_iterations = iteration // 10
-        median = np.median(e_locs[-last_iterations:])
+        last_10 = e_locs[-last_iterations:]
+        median = np.median(last_10)
+        mean_last_10 = np.mean(last_10)
 
+    printer['energy/mean_last10'] = [mean_last_10, 8]
     printer['energy/median_last10'] = [median, 8]
     printer['energy/e_loc_mean'] = [e_loc_mean_shifted, 7]
     printer['energy/e_loc_mean_negative'] = [e_loc_mean, 7]
