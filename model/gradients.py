@@ -6,7 +6,9 @@ def expand(tensor, shape):
 def extract_grads(model, inp, e_loc_centered, n_samples):
     with tf.GradientTape() as tape:
         out, _, _, _, _, _ = model(inp)
+        print(out.shape, e_loc_centered.shape)
         loss = out * e_loc_centered
+        print(loss.shape)
     grads = tape.gradient(loss, model.trainable_weights)
     return [grad / n_samples for grad in grads]
 

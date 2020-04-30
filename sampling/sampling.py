@@ -37,8 +37,8 @@ class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDis
 
     @tf.function
     def resample(self, prev_sample):
-        return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
-        # return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma, seed=self.gpu_id)  # faster
+        # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
+        return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma)  # faster
 
 
 class MetropolisHasting:

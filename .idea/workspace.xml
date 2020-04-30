@@ -2,9 +2,15 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ca7a4457-258c-4d89-bf22-5d4634e4ff7d" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/actor.py" beforeDir="false" afterPath="$PROJECT_DIR$/actor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debbug/derivatives/sratch_tc.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debbug/derivatives/tc_utils/utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debbug/derivatives/tf_utils/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/debbug/streams/pairwise_masks.py" beforeDir="false" afterPath="$PROJECT_DIR$/debbug/streams/pairwise_masks.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model/fermi_net.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/fermi_net.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model/gradients.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/gradients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sampling/sampling.py" beforeDir="false" afterPath="$PROJECT_DIR$/sampling/sampling.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,23 +36,26 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$USER_HOME$/projects/heuropt" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/experiments/Be/compare_factorization" />
+      <recent name="$PROJECT_DIR$/experiments/narrativ" />
+      <recent name="$PROJECT_DIR$/experiments/narrativ/experiments" />
+      <recent name="$PROJECT_DIR$/sampling" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/experiments/narrativ/level9001/data" />
       <recent name="$PROJECT_DIR$/experiments/narrativ/experiments/data" />
       <recent name="$PROJECT_DIR$/experiments/narrativ/experiments/saved" />
       <recent name="$PROJECT_DIR$/experiments/narrativ/experiments/Be" />
       <recent name="$PROJECT_DIR$/utils" />
     </key>
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/experiments/narrativ/experiments" />
-      <recent name="$PROJECT_DIR$/sampling" />
-    </key>
   </component>
-  <component name="RunManager" selected="Python.plot_median_opt (1)">
-    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.pairwise_masks">
+    <configuration name="fermi_net" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -54,12 +63,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/model" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-      <option name="PARAMETERS" value="-s 100 -p 50 -n 500 -pi 1" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/model/fermi_net.py" />
+      <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -67,7 +76,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="main_max" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="full_pairwise_dependency" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -75,12 +84,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/debbug/streams" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-      <option name="PARAMETERS" value="-s 100 -p 10 -n 200 -pi 2" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/debbug/streams/full_pairwise_dependency.py" />
+      <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -88,7 +97,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="pairwise" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="pairwise_masks" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -96,11 +105,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/debbug/electron_positions" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/debbug/streams" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/debbug/electron_positions/pairwise.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/debbug/streams/pairwise_masks.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -117,11 +126,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiments/narrativ/env_init" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiments/narrativ/level9001" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiments/narrativ/env_init/plot_median_opt.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiments/narrativ/level9001/plot_median_opt.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -130,7 +139,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="plot_median_opt" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="safe_norm" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="modelling_qs" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -138,11 +147,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/experiments/narrativ/experiments" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/debbug/streams" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/experiments/narrativ/experiments/plot_median_opt.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/debbug/streams/safe_norm.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -152,19 +161,19 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.main" />
-      <item itemvalue="Python.main_max" />
-      <item itemvalue="Python.plot_median_opt" />
+      <item itemvalue="Python.full_pairwise_dependency" />
+      <item itemvalue="Python.safe_norm" />
+      <item itemvalue="Python.fermi_net" />
       <item itemvalue="Python.plot_median_opt (1)" />
-      <item itemvalue="Python.pairwise" />
+      <item itemvalue="Python.pairwise_masks" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.pairwise_masks" />
+        <item itemvalue="Python.safe_norm" />
         <item itemvalue="Python.plot_median_opt (1)" />
-        <item itemvalue="Python.pairwise" />
-        <item itemvalue="Python.plot_median_opt" />
-        <item itemvalue="Python.main_max" />
-        <item itemvalue="Python.main" />
+        <item itemvalue="Python.fermi_net" />
+        <item itemvalue="Python.full_pairwise_dependency" />
       </list>
     </recent_temporary>
   </component>
@@ -186,46 +195,71 @@
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="451" y="210" key="#com.intellij.execution.impl.EditConfigurationsDialog/67.27.1853.1053@67.27.1853.1053" timestamp="1586990586080" />
-    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl" timestamp="1587494267284">
+    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl" timestamp="1588016877338">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1587494267284" />
-    <state width="1830" height="395" key="GridCell.Tab.0.bottom" timestamp="1587494269933">
+    <state x="776" y="310" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1588016877338" />
+    <state width="1830" height="363" key="GridCell.Tab.0.bottom" timestamp="1588056707017">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="395" key="GridCell.Tab.0.bottom/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269933" />
-    <state width="1830" height="395" key="GridCell.Tab.0.center" timestamp="1587494269931">
+    <state width="1830" height="363" key="GridCell.Tab.0.bottom/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707017" />
+    <state width="1830" height="363" key="GridCell.Tab.0.center" timestamp="1588056707016">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="395" key="GridCell.Tab.0.center/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269931" />
-    <state width="1830" height="395" key="GridCell.Tab.0.left" timestamp="1587494269930">
+    <state width="1830" height="363" key="GridCell.Tab.0.center/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707016" />
+    <state width="1830" height="363" key="GridCell.Tab.0.left" timestamp="1588056707015">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="395" key="GridCell.Tab.0.left/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269930" />
-    <state width="1830" height="395" key="GridCell.Tab.0.right" timestamp="1587494269931">
+    <state width="1830" height="363" key="GridCell.Tab.0.left/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707015" />
+    <state width="1830" height="363" key="GridCell.Tab.0.right" timestamp="1588056707017">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state width="1830" height="395" key="GridCell.Tab.0.right/67.27.1853.1053@67.27.1853.1053" timestamp="1587494269931" />
+    <state width="1830" height="363" key="GridCell.Tab.0.right/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707017" />
+    <state width="1830" height="363" key="GridCell.Tab.1.bottom" timestamp="1588056707021">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1830" height="363" key="GridCell.Tab.1.bottom/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707021" />
+    <state width="1830" height="363" key="GridCell.Tab.1.center" timestamp="1588056707019">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1830" height="363" key="GridCell.Tab.1.center/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707019" />
+    <state width="1830" height="363" key="GridCell.Tab.1.left" timestamp="1588056707018">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1830" height="363" key="GridCell.Tab.1.left/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707018" />
+    <state width="1830" height="363" key="GridCell.Tab.1.right" timestamp="1588056707020">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1830" height="363" key="GridCell.Tab.1.right/67.27.1853.1053@67.27.1853.1053" timestamp="1588056707020" />
     <state x="482" y="187" key="SettingsEditor" timestamp="1587140824393">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="482" y="187" key="SettingsEditor/67.27.1853.1053@67.27.1853.1053" timestamp="1587140824393" />
-    <state x="684" y="293" width="618" height="518" key="find.popup" timestamp="1587163305193">
+    <state x="555" y="153" width="866" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1587611275408">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="684" y="293" width="618" height="518" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1587163305193" />
-    <state x="656" y="257" width="672" height="678" key="search.everywhere.popup" timestamp="1586988341778">
+    <state x="555" y="153" width="866" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/67.27.1853.1053@67.27.1853.1053" timestamp="1587611275408" />
+    <state x="748" y="190" width="618" height="518" key="find.popup" timestamp="1588055871750">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="656" y="257" width="672" height="678" key="search.everywhere.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1586988341778" />
+    <state x="748" y="190" width="618" height="518" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1588055871750" />
+    <state x="656" y="257" width="672" height="678" key="search.everywhere.popup" timestamp="1587756868394">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state x="656" y="257" width="672" height="678" key="search.everywhere.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1587756868394" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/model/fermi_net.py</url>
-          <line>242</line>
-          <option name="timeStamp" value="1" />
+          <url>file://$PROJECT_DIR$/debbug/streams/safe_norm.py</url>
+          <line>26</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/debbug/streams/pairwise_masks.py</url>
+          <line>52</line>
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -94,7 +94,6 @@ class fermiNet(tk.Model):
         self.output_layer = tf.Variable(env_initializer(16, (1, n_determinants, 1, 1), 1, env_init / n_determinants),
                                         name='wf_1')
         # self.epoch = 1
-
     # @tf.function  # phase = 0, 1, 2 // test, supervised, unsupervised
     def call(self, r_electrons):
         n_samples = r_electrons.shape[0]
@@ -103,7 +102,10 @@ class fermiNet(tk.Model):
         # --- computing inputs
         # single_inputs: (b, n_electrons, 4), pairwise_inputs: (, n_pairwise, 4)
         ae_vectors = compute_ae_vectors(r_atoms, r_electrons)
-        single, pairwise = compute_inputs(r_electrons, n_samples, ae_vectors, self.n_atoms, self.n_electrons, self.full_pairwise)
+        single, pairwise = compute_inputs(r_electrons, n_samples, ae_vectors, self.n_atoms, self.n_electrons, False)
+
+        zero_terms = tf.zeros((n_samples, self.n_electrons, 4))
+        pairwise = tf.concat((pairwise, zero_terms), axis=1)
 
         if self.mix_input:
             single = self.input_mixer(single, pairwise, n_samples, self.n_electrons)
@@ -268,7 +270,7 @@ def safe_norm_grad(x, norm):
     g = tf.where(tf.math.is_nan(g), tf.zeros_like(g), g)
     cache = (x, norm)
 
-    def grad_grad(dy):
+    def grad_grad(ddy):
         x, norm = cache
         x = tf.expand_dims(x, -1)  # (n, ne**2, 3, 1)
         xx = x * tf.transpose(x, perm=(0, 1, 3, 2))  # cross terms
@@ -277,7 +279,7 @@ def safe_norm_grad(x, norm):
         gg = norm_diag - xx / tf.expand_dims(norm, -1)**3
         gg = tf.reduce_sum(gg, axis=-1)
         gg = tf.where(tf.math.is_nan(gg), tf.zeros_like(gg), gg)
-        return dy*gg, None
+        return ddy*gg, None
 
     return g, grad_grad
 
@@ -295,7 +297,6 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, ful
     # r_electrons: (n_samples, n_electrons, 3)
     # ae_vectors: (n_samples, n_electrons, n_atoms, 3)
     ae_distances = tf.norm(ae_vectors, axis=-1, keepdims=True)
-    print(ae_distances.shape)
     single_inputs = tf.concat((ae_vectors, ae_distances), axis=-1)
     single_inputs = tf.reshape(single_inputs, (-1, n_electrons, 4*n_atoms))
 
@@ -310,6 +311,7 @@ def compute_inputs(r_electrons, n_samples, ae_vectors, n_atoms, n_electrons, ful
         # ee_distances = tf.where(eye_mask, tf.zeros_like(eye_mask, dtype=tf.float32), tmp)
         ee_vectors = tf.reshape(ee_vectors, (-1, n_electrons**2, 3))
         ee_distances = safe_norm(ee_vectors)
+        # ee_distances = tf.norm(ee_vectors, axis=-1, keepdims=True)
         pairwise_inputs = tf.concat((ee_vectors, ee_distances), axis=-1)
         # pairwise_inputs = tf.reshape(pairwise_inputs, (-1, n_electrons**2, 4))
     else:
@@ -333,11 +335,6 @@ class Mixer(tk.Model):
     def __init__(self, n_electrons, n_single_features, n_pairwise, n_pairwise_features, n_spin_up, n_spin_down, full_pairwise, input_mixer=False):
         super(Mixer, self).__init__()
 
-        if input_mixer:
-            self.norm = 0.
-        else:
-            self.norm = 0.
-
         self.n_spin_up = tofloat(n_spin_up)
         self.n_spin_down = tofloat(n_spin_down)
 
@@ -347,11 +344,23 @@ class Mixer(tk.Model):
         self.spin_down_mask = ~self.spin_up_mask
 
         if full_pairwise:
+            # self.pairwise_spin_up_mask, self.pairwise_spin_down_mask, self.norm_up, self.norm_down = \
+            #     generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
             self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
-                generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
+                generate_pairwise_masks_full_not_on_diagonal(n_electrons, n_pairwise, n_spin_up, n_spin_down,
+                                                             n_pairwise_features)
         else:
             self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
                 generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
+
+
+        # if we wanted to change the normalization factor to the input
+        # if input_mixer:
+        #     self.up_norm = self.norm_up
+        #     self.down_norm = self.norm_down
+        # else:
+        #     self.up_norm = self.n_spin_up
+        #     self.down_norm = self.n_spin_down
 
     # @tf.function
     def call(self, single, pairwise, n_samples, n_electrons):
@@ -376,10 +385,10 @@ class Mixer(tk.Model):
         replace = tf.zeros_like(sum_pairwise)
         # up
         sum_pairwise_up = tf.where(self.pairwise_spin_up_mask, sum_pairwise, replace)
-        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / (self.n_spin_up - self.norm)
+        sum_pairwise_up = tf.reduce_sum(sum_pairwise_up, 2) / self.n_spin_up
         # down
         sum_pairwise_down = tf.where(self.pairwise_spin_down_mask, sum_pairwise, replace)
-        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / (self.n_spin_down - self.norm)
+        sum_pairwise_down = tf.reduce_sum(sum_pairwise_down, 2) / self.n_spin_down
 
         features = tf.concat((single, sum_spin_up, sum_spin_down, sum_pairwise_up, sum_pairwise_down), 2)
         return features
@@ -608,8 +617,7 @@ def first_order_gradient(a_unused, b_unused, w_unused, *fwd_cache):
     :return:
     """
     (da, db, dw), first_order_cache = _log_abs_sum_det_first_order(*fwd_cache)
-    return (da, db, dw), \
-           lambda a_dash, b_dash, w_dash: _log_abs_sum_det_second_order(
+    return (da, db, dw), lambda a_dash, b_dash, w_dash: _log_abs_sum_det_second_order(
                a_dash, b_dash, w_dash, *fwd_cache, *first_order_cache)
 
 
@@ -639,6 +647,56 @@ def log_abs_sum_det(a, b, w):
 # n_pairwise
 # compute the inputs
 #
+
+def generate_norm(spin_mask, n_electrons):
+    mask = tf.eye(n_electrons, dtype=tf.bool)
+    mask = tf.tile(~tf.reshape(mask, (1, n_electrons, n_electrons)), (n_electrons, 1, 1))
+
+    up_mask_tmp = tf.boolean_mask(spin_mask, mask)
+    up_mask_tmp = tf.reshape(up_mask_tmp, (n_electrons, -1))
+    tmp = tf.reduce_sum(tf.cast(up_mask_tmp, dtype=tf.float32), axis=-1)
+    return tf.reshape(tmp, (1, n_electrons, 1))
+
+def generate_pairwise_masks_full_not_on_diagonal(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
+    eye_mask = ~np.eye(n_electrons, dtype=np.bool)
+    ups = np.ones(n_electrons, dtype=np.bool)
+    ups[n_spin_up:] = False
+    downs = ~ups
+
+    spin_up_mask = []
+    spin_down_mask = []
+    mask = np.zeros((n_electrons, n_electrons), dtype=np.bool)
+
+    for electron in range(n_electrons):
+        e_mask_up = np.zeros((n_electrons,), dtype=np.bool)
+        e_mask_down = np.zeros((n_electrons,), dtype=np.bool)
+
+        mask_up = np.copy(mask)
+        mask_up[electron, :] = ups
+        mask_up = mask_up[eye_mask].reshape(-1)
+        if electron < n_spin_up:
+            e_mask_up[electron] = True
+        spin_up_mask.append(np.concatenate((mask_up, e_mask_up), axis=0))
+
+        mask_down = np.copy(mask)
+        mask_down[electron, :] = downs
+        mask_down = mask_down[eye_mask].reshape(-1)
+        if electron >= n_spin_up:
+            e_mask_down[electron] = True
+        spin_down_mask.append(np.concatenate((mask_down, e_mask_down), axis=0))
+
+    spin_up_mask = tf.convert_to_tensor(spin_up_mask, dtype=tf.bool)
+    # (n_samples, n_electrons, n_electrons, n_pairwise_features)
+    spin_up_mask = tf.reshape(spin_up_mask, (1, n_electrons, n_pairwise, 1))
+    spin_up_mask = tf.tile(spin_up_mask, (1, 1, 1, n_pairwise_features))
+
+    spin_down_mask = tf.convert_to_tensor(spin_down_mask, dtype=tf.bool)
+    spin_down_mask = tf.reshape(spin_down_mask, (1, n_electrons, n_pairwise, 1))
+    spin_down_mask = tf.tile(spin_down_mask, (1, 1, 1, n_pairwise_features))
+
+    return spin_up_mask, spin_down_mask
+
+
 def generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
     ups = np.ones(n_electrons, dtype=np.bool)
     ups[n_spin_up:] = False
@@ -651,22 +709,26 @@ def generate_pairwise_masks_full(n_electrons, n_pairwise, n_spin_up, n_spin_down
     for electron in range(n_electrons):
         mask_up = np.copy(mask)
         mask_up[electron, :] = ups
-        spin_up_mask.append(mask_up.reshape(-1))
+        spin_up_mask.append(mask_up)
 
         mask_down = np.copy(mask)
         mask_down[electron, :] = downs
-        spin_down_mask.append(mask_down.reshape(-1))
+        spin_down_mask.append(mask_down)
 
     spin_up_mask = tf.convert_to_tensor(spin_up_mask, dtype=tf.bool)
+    spin_down_mask = tf.convert_to_tensor(spin_down_mask, dtype=tf.bool)
+
+    spin_up_norm = generate_norm(spin_up_mask, n_electrons)
+    spin_down_norm = generate_norm(spin_down_mask, n_electrons)
+
     # (n_samples, n_electrons, n_electrons, n_pairwise_features)
     spin_up_mask = tf.reshape(spin_up_mask, (1, n_electrons, n_pairwise, 1))
     spin_up_mask = tf.tile(spin_up_mask, (1, 1, 1, n_pairwise_features))
 
-    spin_down_mask = tf.convert_to_tensor(spin_down_mask, dtype=tf.bool)
     spin_down_mask = tf.reshape(spin_down_mask, (1, n_electrons, n_pairwise, 1))
     spin_down_mask = tf.tile(spin_down_mask, (1, 1, 1, n_pairwise_features))
 
-    return spin_up_mask, spin_down_mask
+    return spin_up_mask, spin_down_mask, spin_up_norm, spin_down_norm
 
 def generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features):
     eye_mask = ~np.eye(n_electrons, dtype=np.bool)

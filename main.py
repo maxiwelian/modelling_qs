@@ -202,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('--mix_final', help='', action='store_true')
     parser.add_argument('--full_pairwise', help='', action='store_true')
     parser.add_argument('--mix_input', help='', action='store_true')
+    parser.add_argument('--test', help='', action='store_true')
 
     # paths
     parser.add_argument('-l', '--load_iteration', default=0, type=int)
@@ -217,6 +218,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
     args.n_iterations += 1
+
+    if args.test:
+        args.local = True
+        args.half_model = True
+        args.full_pairwise = True
+        args.mix_input = True
 
     # python main.py -gpu 4 -o kfac -exp the1 -pi 2000 -bi 100 -i 100000 -dm ft -exp_dir the1 -ca ba
     # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
