@@ -198,7 +198,7 @@ class envelopeLayer(tk.Model):
         super(envelopeLayer, self).__init__()
         # k: n_determinants, i: n_electrons, f: n_features
         w = initializer(nf_single, (n_determinants, n_spins, nf_single, 1), 1, None)
-        b = tf.zeros((n_determinants, n_spins, 1, 1))
+        b = tf.zeros((n_determinants, n_spins, 1, 1)) + 0.01
         w = tf.concat((w, b), axis=2)
 
         self.w = tf.Variable(w, name='env_%s_w_%i' % (name, n_spins))
@@ -243,7 +243,7 @@ class Stream(tk.Model):
         # lim = tf.math.sqrt(6 / (in_dim + out_dim))
         # w = tf.concat((tf.random.uniform((in_dim, out_dim), minval=-lim, maxval=lim), tf.zeros((1, out_dim))), axis=0)
         w = initializer(in_dim, (in_dim, out_dim), out_dim, None)
-        b = tf.zeros((1, out_dim))
+        b = tf.zeros((1, out_dim)) + 0.01
         # b = tf.random.normal((1, out_dim), stddev=std, dtype=dtype)
         w = tf.concat((w, b), axis=0)
         self.w = tf.Variable(w, name='stream%i_%i' % (node, n_spins))
@@ -511,7 +511,7 @@ def _log_abs_sum_det_fwd(a, b, w):
     log_psi = tf.math.log(tf.math.abs(u_sum)) + xmax
 
     # sensitivities = sign_unshifted_sum * tf.exp(-log_psi)
-    sensitivities = sign_shifted_sum / u_sum
+    sensitivities = 1. / u_sum
 
     dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 

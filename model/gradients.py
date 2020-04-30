@@ -79,8 +79,8 @@ class KFAC_Actor():
             #print(s.shape)
 
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
-                s = self.center(s)
-                a = self.center(a)
+                s = self.center(s, conv_factor)
+                a = self.center(a, conv_factor)
 
             a = self.absorb_j(a, conv_factor)  # couple different conv approx methods
             s = self.absorb_j(s, conv_factor)
@@ -140,8 +140,12 @@ class KFAC_Actor():
         return
 
     @staticmethod
-    def center(x):
-        return x - tf.reduce_mean(x, axis=0, keepdims=True)
+    def center(x, cv):
+        if cv > 1.:
+            xc = tf.reduce_mean(x, axis=[0, 1], keepdims=True)
+        else:
+            xc = tf.reduce_mean(x, axis=0, keepdims=True)
+        return x - tf.reduce_mean(xc, axis=0, keepdims=True)
 
     # stream 'njf, fs -> njs' + append bias
     # env_w 'njf,kifs->njkis' + append bias
@@ -216,7 +220,7 @@ class KFAC():
                  norm_constraint,
                  damping_method,
                  conv_approx,
-                 ones_pi):
+                 ft_method):
 
         self.lr0 = lr0
         self.lr = lr0
@@ -234,7 +238,7 @@ class KFAC():
         if damping_method == 'tikhonov':
             self.ops = Tikhonov()
         elif damping_method == 'ft':
-            self.ops = FactoredTikhonov(ones_pi)
+            self.ops = FactoredTikhonov(ft_method)
 
         self.iteration = 0
 
@@ -246,11 +250,8 @@ class KFAC():
             conv_factor = self.compute_conv_factor(extract_cv(name))
             maa = m_aa[name]
             mss = m_ss[name]
-            #print(name)
-            #print('cv:', conv_factor)
 
-
-            # damping = self.damping / (1 + self.decay / 100. * iteration)
+            damping = self.damping / (1 + self.decay * 100 * iteration)
             ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
 
             nat_grads.append(ng)
@@ -306,9 +307,9 @@ class Tikhonov():
 
 
 class FactoredTikhonov():
-    def __init__(self, ones_pi):
+    def __init__(self, ft_method):
         print('Factored Tikhonov damping')
-        self.ones_pi = ones_pi
+        self.ft_method = ft_method
 
     def compute_eig_decomp(self, maa, mss):
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
@@ -340,12 +341,20 @@ class FactoredTikhonov():
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
-        if self.ones_pi:
+        if self.ft_method == 'alternate':
+            if 'stream' not in name and '_w_' not in name:
+                pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
+            else:
+                tr_a = self.get_tr_norm(m_aa)
+                tr_s = self.get_tr_norm(m_ss)
+                pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+        elif self.ft_method == 'ones_pi':
             pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
         else:
             tr_a = self.get_tr_norm(m_aa)
             tr_s = self.get_tr_norm(m_ss)
             pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+
 
         # tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
         # tf.debugging.check_numerics(pi, 'pi')

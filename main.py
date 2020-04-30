@@ -185,7 +185,7 @@ if __name__ == '__main__':
     parser.add_argument('-cw', '--cov_weight', default=0.05, type=float)
     parser.add_argument('-ca', '--conv_approx', default='ba', type=str)
     parser.add_argument('--should_center', help='center activations and sensitivities', action='store_true')
-    parser.add_argument('--ones_pi', help='pi is one in factored tikhonov damping', action='store_true')
+    parser.add_argument('-ftm', '--ft_method', default='original', type=str)
 
     # sampling
     parser.add_argument('-si', '--sampling_init', default=1., type=float)
@@ -239,7 +239,6 @@ if __name__ == '__main__':
         args.nf_hidden_pairwise = 32
         args.n_determinants = 16
         model = '_hm'
-        args.should_center = True
 
     fp = ''
     if args.full_pairwise:
