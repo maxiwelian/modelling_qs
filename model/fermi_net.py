@@ -518,7 +518,7 @@ def _log_abs_sum_det_fwd(a, b, w):
     #           (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)
 
     sensitivities = tf.exp(-log_psi) * sign_unshifted_sum
-    # sensitivities = tf.exp(xmax-log_psi) * sign_shifted_sum
+    # sensitivities = tf.exp(xmax-log_psi) * sign_unshifted_sum
 
     dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 

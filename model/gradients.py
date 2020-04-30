@@ -6,9 +6,7 @@ def expand(tensor, shape):
 def extract_grads(model, inp, e_loc_centered, n_samples):
     with tf.GradientTape() as tape:
         out, _, _, _, _, _ = model(inp)
-        print(out.shape, e_loc_centered.shape)
         loss = out * e_loc_centered
-        print(loss.shape)
     grads = tape.gradient(loss, model.trainable_weights)
     return [grad / n_samples for grad in grads]
 
@@ -75,8 +73,8 @@ class KFAC_Actor():
             conv_factor = extract_cv(name)
 
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
-                a = self.center(a)
                 s = self.center(s)
+                a = self.center(a)
 
             a = self.absorb_j(a, conv_factor)  # couple different conv approx methods
             s = self.absorb_j(s, conv_factor)
@@ -128,8 +126,8 @@ class KFAC_Actor():
 
     @staticmethod
     def center(x):
-        xc = tf.reshape(x, (-1, *x.shape[2:]))
-        return x - tf.reduce_mean(xc, axis=0, keepdims=True)
+
+        return x - tf.reduce_mean(x, axis=0, keepdims=True)
 
     # stream 'njf, fs -> njs' + append bias
     # env_w 'njf,kifs->njkis' + append bias
@@ -234,6 +232,7 @@ class KFAC():
             maa = m_aa[name]
             mss = m_ss[name]
 
+            # damping = self.damping / (1 + self.decay / 100. * iteration)
             ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
 
             nat_grads.append(ng)
@@ -289,13 +288,36 @@ class FactoredTikhonov():
     def __init__(self):
         print('Factored Tikhonov damping')
 
-    def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
-        maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
+    # def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
+    #     maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
+    #
+    #     inv_maa = tf.linalg.inv(maa)
+    #     inv_mss = tf.linalg.inv(mss)
+    #
+    #     ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
+    #     return ng
 
-        inv_maa = tf.linalg.inv(maa)
-        inv_mss = tf.linalg.inv(mss)
+    def compute_eig_decomp(self, maa, mss):
+        # get the eigenvalues and eigenvectors of a symmetric positive matrix
+        with tf.device("/cpu:0"):
+            vals_a, vecs_a = tf.linalg.eigh(maa)
+            vals_s, vecs_s = tf.linalg.eigh(mss)
 
-        ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
+        # zero negative eigenvalues. eigh outputs VALUES then VECTORS
+        vals_a = tf.maximum(vals_a, tf.zeros_like(vals_a))
+        vals_s = tf.maximum(vals_s, tf.zeros_like(vals_s))
+
+        return vals_a, vecs_a, vals_s, vecs_s
+
+    def compute_nat_grads(self,  maa, mss, g, conv_factor, damping, layer, iteration):
+
+        vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
+
+        v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
+        divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
+        v2 = v1 / (divisor + damping / conv_factor)
+        ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
+
         return ng
 
     def damp(self, m_aa, m_ss, conv_factor, damping, name, iteration):  # factored tikhonov damping
