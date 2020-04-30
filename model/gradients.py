@@ -17,13 +17,15 @@ class KFAC_Actor():
     def __init__(self,
                  model,
                  n_spins,
-                 conv_approx):
+                 conv_approx,
+                 cov_weight,
+                 should_center):
 
         self.layers = [w.name for w in model.trainable_weights]
 
         self.n_spins = n_spins
         self.cov_moving_weight = 0.95
-        self.cov_weight = 0.05
+        self.cov_weight = cov_weight
         self.cov_normalize = self.cov_moving_weight + self.cov_weight
 
         if conv_approx == 'mg':
@@ -43,7 +45,7 @@ class KFAC_Actor():
             self.m_aa[name] = tf.ones(shape_a)
             self.m_ss[name] = tf.ones(shape_s)
 
-        self.should_center = True  # this is true by default as it is correct, though we can change
+        self.should_center = should_center  # this is true by default as it is correct, though we can change
         self.iteration = 0
 
     def extract_grads_and_a_and_s(self, model, inp, e_loc_centered, n_samples):
@@ -72,6 +74,10 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
 
+            #print('xs')
+            #print(a.shape)
+            #print(s.shape)
+
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 s = self.center(s)
                 a = self.center(a)
@@ -89,7 +95,16 @@ class KFAC_Actor():
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
 
+            #print('xxs')
+            #print(aa.shape)
+            #print(ss.shape)
+
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
+
+            #print('outs')
+            # print(self.m_aa[name].shape, tf.reduce_mean(tf.abs(self.m_aa[name].numpy())))
+            # print(self.m_ss[name].shape, tf.reduce_mean(tf.abs(self.m_ss[name].numpy())))
+            #print(g.shape)
 
         self.iteration += 1
         return grads, self.m_aa, self.m_ss
@@ -113,7 +128,7 @@ class KFAC_Actor():
         cov_moving_weight = tf.minimum(1. - (1 / (1 + iteration)), self.cov_moving_weight)
         cov_weight = self.cov_weight
         self.cov_normalize = cov_weight + cov_moving_weight
-
+        #print(cov_moving_weight, 'cov_moving_weight')
         # cov_moving_weight = self.cov_moving_weight
         # cov_weight = self.cov_weight
         # tensorflow and or ray has a weird thing about inplace operations??
@@ -126,7 +141,6 @@ class KFAC_Actor():
 
     @staticmethod
     def center(x):
-
         return x - tf.reduce_mean(x, axis=0, keepdims=True)
 
     # stream 'njf, fs -> njs' + append bias
@@ -201,7 +215,8 @@ class KFAC():
                  initial_damping,
                  norm_constraint,
                  damping_method,
-                 conv_approx):
+                 conv_approx,
+                 ones_pi):
 
         self.lr0 = lr0
         self.lr = lr0
@@ -219,18 +234,21 @@ class KFAC():
         if damping_method == 'tikhonov':
             self.ops = Tikhonov()
         elif damping_method == 'ft':
-            self.ops = FactoredTikhonov()
+            self.ops = FactoredTikhonov(ones_pi)
 
         self.iteration = 0
 
     def compute_updates(self, grads, m_aa, m_ss, iteration):
         self.lr = self.compute_lr(iteration)
-
+        # print('lr:', self.lr)
         nat_grads = []
         for g, name in zip(grads, self.layers):
             conv_factor = self.compute_conv_factor(extract_cv(name))
             maa = m_aa[name]
             mss = m_ss[name]
+            #print(name)
+            #print('cv:', conv_factor)
+
 
             # damping = self.damping / (1 + self.decay / 100. * iteration)
             ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
@@ -261,8 +279,9 @@ class Tikhonov():
         print('Tikhonov damping')
 
     def compute_nat_grads(self,  maa, mss, g, conv_factor, damping, layer, iteration):
-
         vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
+        #print('eigs')
+        #print(vals_a.shape, vecs_a.shape, g.shape, vals_s.shape, vecs_s.shape)
 
         v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
         divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
@@ -278,6 +297,8 @@ class Tikhonov():
             vals_s, vecs_s = tf.linalg.eigh(mss)
 
         # zero negative eigenvalues. eigh outputs VALUES then VECTORS
+        # print('zero')
+        # print(vals_a.shape, vecs_a.shape)
         vals_a = tf.maximum(vals_a, tf.zeros_like(vals_a))
         vals_s = tf.maximum(vals_s, tf.zeros_like(vals_s))
 
@@ -285,17 +306,9 @@ class Tikhonov():
 
 
 class FactoredTikhonov():
-    def __init__(self):
+    def __init__(self, ones_pi):
         print('Factored Tikhonov damping')
-
-    # def compute_nat_grads(self, maa, mss, g, conv_factor, damping, layer, iteration):
-    #     maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
-    #
-    #     inv_maa = tf.linalg.inv(maa)
-    #     inv_mss = tf.linalg.inv(mss)
-    #
-    #     ng = tf.linalg.matmul(tf.linalg.matmul(inv_maa, g / conv_factor), inv_mss)
-    #     return ng
+        self.ones_pi = ones_pi
 
     def compute_eig_decomp(self, maa, mss):
         # get the eigenvalues and eigenvectors of a symmetric positive matrix
@@ -311,11 +324,13 @@ class FactoredTikhonov():
 
     def compute_nat_grads(self,  maa, mss, g, conv_factor, damping, layer, iteration):
 
+        maa, mss = self.damp(maa, mss, conv_factor, damping, layer, iteration)
+
         vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
 
         v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
         divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
-        v2 = v1 / (divisor + damping / conv_factor)
+        v2 = v1 / divisor
         ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
 
         return ng
@@ -325,12 +340,12 @@ class FactoredTikhonov():
         dim_s = m_ss.shape[-1]
         batch_shape = list((1 for _ in m_aa.shape[:-2]))  # needs to be cast as list or disappears in tf.eye
 
-        tr_a = self.get_tr_norm(m_aa)
-        tr_s = self.get_tr_norm(m_ss)
-
-        # if 'stream' not in name:
-        # pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
-        pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+        if self.ones_pi:
+            pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
+        else:
+            tr_a = self.get_tr_norm(m_aa)
+            tr_s = self.get_tr_norm(m_ss)
+            pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
         # tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
         # tf.debugging.check_numerics(pi, 'pi')
@@ -344,6 +359,10 @@ class FactoredTikhonov():
 
         m_ss_damping = tf.sqrt(damping / (pi * conv_factor))
         # m_ss_damping = tf.maximum(eps * tf.ones_like(m_ss_damping), m_ss_damping)
+
+        # print('damping')
+        # print(m_aa.shape, eye_a.shape, m_aa_damping.shape)
+        # print(m_ss.shape, eye_s.shape, m_ss_damping.shape)
 
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping

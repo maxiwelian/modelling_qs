@@ -130,7 +130,7 @@ def main(config):
                 save_model_and_samples(models, config, iteration)
                 _ = ray.get([model.compute_validation_energy.remote() for model in models])
                 tf.summary.scalar('energy/validation_energy', tf.reduce_mean(_), iteration)
-
+            # break
 
     return
 
@@ -182,12 +182,15 @@ if __name__ == '__main__':
     parser.add_argument('-dm', '--damping_method', help='ft or tikhonov', default='ft', type=str)
     parser.add_argument('-id', '--initial_damping', default=0.001, type=float)
     parser.add_argument('-nc', '--norm_constraint', default=0.001, type=float)
+    parser.add_argument('-cw', '--cov_weight', default=0.05, type=float)
     parser.add_argument('-ca', '--conv_approx', default='ba', type=str)
+    parser.add_argument('--should_center', help='center activations and sensitivities', action='store_true')
+    parser.add_argument('--ones_pi', help='pi is one in factored tikhonov damping', action='store_true')
 
     # sampling
     parser.add_argument('-si', '--sampling_init', default=1., type=float)
     parser.add_argument('-ss', '--sampling_steps', default=0.02**0.5, type=float)
-    parser.add_argument('-bi', '--n_burn_in', default=1, type=int)
+    parser.add_argument('-bi', '--n_burn_in', default=10, type=int)
     parser.add_argument('-cl', '--correlation_length', default=10, type=int)
     parser.add_argument('-bb', '--burn_batches', default=10, type=int)  # number of batches in a burn
 
@@ -218,6 +221,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.seed = True
     args.n_iterations += 1
+    args.should_center = True
 
     if args.test:
         args.local = True
@@ -235,6 +239,7 @@ if __name__ == '__main__':
         args.nf_hidden_pairwise = 32
         args.n_determinants = 16
         model = '_hm'
+        args.should_center = True
 
     fp = ''
     if args.full_pairwise:
