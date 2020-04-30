@@ -499,6 +499,7 @@ def _log_abs_sum_det_fwd(a, b, w):
 
     unshifted_exp = sign_a * sign_b * tf.exp(x)
     unshifted_exp_w = w * unshifted_exp
+    # unshifted_sum = tf.reduce_sum(unshifted_exp_w, axis=1, keepdims=True)
     sign_unshifted_sum = tf.math.sign(tf.reduce_sum(unshifted_exp_w, axis=1, keepdims=True))
 
     exponent = x - xmax
@@ -509,20 +510,12 @@ def _log_abs_sum_det_fwd(a, b, w):
     sign_shifted_sum = tf.math.sign(u_sum)
     log_psi = tf.math.log(tf.math.abs(u_sum)) + xmax
 
-    # Both of these derivations appear to be valid
-    # activations = shifted_exp
     # sensitivities = sign_unshifted_sum * tf.exp(-log_psi)
-    # dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x-log_psi)
-    #
-    # return log_psi, sign_shifted_sum, activations, sensitivities, \
-    #           (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)
-
-    sensitivities = tf.exp(-log_psi) * sign_unshifted_sum
-    # sensitivities = tf.exp(xmax-log_psi) * sign_unshifted_sum
+    sensitivities = sign_shifted_sum / u_sum
 
     dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 
-    return log_psi, sign_unshifted_sum, unshifted_exp, sensitivities, \
+    return log_psi, sign_unshifted_sum, shifted_exp, sensitivities, \
            (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)
 
 # @tf.function
