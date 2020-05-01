@@ -207,7 +207,8 @@ class KFAC():
                  norm_constraint,
                  damping_method,
                  conv_approx,
-                 ft_method):
+                 ft_method,
+                 use_exact_envs):
 
         self.lr0 = lr0
         self.lr = lr0
@@ -216,6 +217,7 @@ class KFAC():
         self.layers = layers
         self.damping = initial_damping
         self.norm_constraint = norm_constraint
+        self.use_exact_envs = use_exact_envs
 
         if conv_approx == 'ba':
             self.compute_conv_factor = lambda x: x**2
@@ -249,7 +251,10 @@ class KFAC():
             if 'stream' in name or '_w_' in name:
                 ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
             else:
-                ng = self.compute_exact_nat_grads(all_a[name], all_s[name], g, self.damping, name, iteration)
+                if self.use_exact_envs:
+                    ng = self.compute_exact_nat_grads(all_a[name], all_s[name], g, self.damping, name, iteration)
+                else:
+                    ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
 
             nat_grads.append(ng)
 
@@ -392,10 +397,6 @@ class FactoredTikhonov():
             tr_s = self.get_tr_norm(m_ss)
             pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
-
-        # tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
-        # tf.debugging.check_numerics(pi, 'pi')
-
         eye_a = tf.eye(dim_a, batch_shape=batch_shape)
         eye_s = tf.eye(dim_s, batch_shape=batch_shape)
 
@@ -412,6 +413,9 @@ class FactoredTikhonov():
 
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping
+
+        tf.summary.scalar('damping/pi_%s_aa' % name, m_aa_damping, iteration)
+        tf.summary.scalar('damping/pi_%s_ss' % name, m_ss_damping, iteration)
         return m_aa, m_ss
 
     @staticmethod

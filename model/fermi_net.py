@@ -113,34 +113,26 @@ class fermiNet(tk.Model):
             pass
 
         # --- input layer
-        single, a_in_s, s_in_s = self.single_stream_in(single, n_samples, self.n_electrons)
-        pairwise, a_in_p, s_in_p = self.pairwise_stream_in(pairwise, n_samples, self.n_pairwise)
+        single, a_in_s, s_in_s = self.single_stream_in(single, n_samples, self.n_electrons, 0.0)
+        pairwise, a_in_p, s_in_p = self.pairwise_stream_in(pairwise, n_samples, self.n_pairwise, 0.0)
         single_mix = self.mixer_in(single, pairwise, n_samples, self.n_electrons)
 
         # --- intermediate layers
-        tmp, a_1_s, s_1_s = self.s1(single_mix, n_samples, self.n_electrons)
-        single += tmp
-        tmp, a_1_p, s_1_p = self.p1(pairwise, n_samples, self.n_pairwise)
-        pairwise += tmp
+        single, a_1_s, s_1_s = self.s1(single_mix, n_samples, self.n_electrons, single)
+        pairwise, a_1_p, s_1_p = self.p1(pairwise, n_samples, self.n_pairwise, pairwise)
         single_mix = self.m1(single, pairwise, n_samples, self.n_electrons)
 
-        tmp, a_2_s, s_2_s = self.s2(single_mix, n_samples, self.n_electrons)
-        single += tmp
-        tmp, a_2_p, s_2_p = self.p2(pairwise, n_samples, self.n_pairwise)
-        pairwise += tmp
+        single, a_2_s, s_2_s = self.s2(single_mix, n_samples, self.n_electrons, single)
+        pairwise, a_2_p, s_2_p = self.p2(pairwise, n_samples, self.n_pairwise, pairwise)
         single_mix = self.m2(single, pairwise, n_samples, self.n_electrons)
 
         # --- final layer
         if self.mix_final:
-            tmp, a_3_s, s_3_s = self.s3(single_mix, n_samples, self.n_electrons)
-            single += tmp
-            tmp, a_3_p, s_3_p = self.p3(pairwise, n_samples, self.n_pairwise)
-            pairwise += tmp
+            single, a_3_s, s_3_s = self.s3(single_mix, n_samples, self.n_electrons, single)
+            pairwise, a_3_p, s_3_p = self.p3(pairwise, n_samples, self.n_pairwise, pairwise)
             single = self.m3(single, pairwise, n_samples, self.n_electrons)
         else:
-            single, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons)
-            # single += tmp remember to include back in if issues
-
+            single, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons, single)
 
         # --- envelopes
         spin_up_determinants, spin_down_determinants, a_up, s_up, a_down, s_down = \
@@ -248,10 +240,10 @@ class Stream(tk.Model):
         w = tf.concat((w, b), axis=0)
         self.w = tf.Variable(w, name='stream%i_%i' % (node, n_spins))
 
-    def call(self, inputs, n_samples, n_streams):
+    def call(self, inputs, n_samples, n_streams, residual):
         inputs_w_bias = tf.concat((inputs, tf.ones((n_samples, n_streams, 1))), axis=-1)
         out1 = inputs_w_bias @ self.w
-        out2 = tf.nn.tanh(out1)
+        out2 = tf.nn.tanh(out1) + residual
         return out2, inputs, out1
 
 
@@ -515,7 +507,7 @@ def _log_abs_sum_det_fwd(a, b, w):
     # dw = sign_unshifted_sum * sign_a * sign_b * tf.exp(x - log_psi)
 
     sensitivities = tf.expand_dims(tf.squeeze(1. / u_sum), -1)
-    activations = tf.squeeze(shifted_exp, -1)
+    activations = tf.squeeze(shifted_exp)
 
     return log_psi, sign_unshifted_sum, activations, sensitivities, \
            (a, b, w, unshifted_exp, sign_unshifted_sum, dw, sign_a, logdet_a, sign_b, logdet_b, log_psi)

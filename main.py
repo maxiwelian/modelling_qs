@@ -184,6 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('-nc', '--norm_constraint', default=0.001, type=float)
     parser.add_argument('-cw', '--cov_weight', default=0.05, type=float)
     parser.add_argument('-ca', '--conv_approx', default='ba', type=str)
+    parser.add_argument('--use_exact_envs', help='use the exact fisher block for envs', action='store_true')
     parser.add_argument('--should_center', help='center activations and sensitivities', action='store_true')
     parser.add_argument('-ftm', '--ft_method', default='original', type=str)
 
