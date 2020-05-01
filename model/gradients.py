@@ -414,8 +414,8 @@ class FactoredTikhonov():
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping
 
-        tf.summary.scalar('damping/pi_%s_aa' % name, m_aa_damping, iteration)
-        tf.summary.scalar('damping/pi_%s_ss' % name, m_ss_damping, iteration)
+        tf.summary.scalar('damping/pi_%s_aa' % name, tf.reduce_mean(m_aa_damping), iteration)
+        tf.summary.scalar('damping/pi_%s_ss' % name, tf.reduce_mean(m_ss_damping), iteration)
         return m_aa, m_ss
 
     @staticmethod

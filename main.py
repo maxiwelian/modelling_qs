@@ -223,6 +223,8 @@ if __name__ == '__main__':
     args.seed = True
     args.n_iterations += 1
     args.should_center = True
+    args.mix_input = True
+    args.full_pairwise = True
 
     if args.test:
         args.local = True
