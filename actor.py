@@ -1,9 +1,5 @@
 import ray
 
-
-
-
-
 @ray.remote(num_gpus=1)
 class Network(object):
     def __init__(self, config, gpu_id):

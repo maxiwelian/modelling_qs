@@ -74,14 +74,14 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
 
+            a = self.append_bias_if_needed(a, name)  # after the centering
+
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 s = self.center(s, conv_factor)
                 a = self.center(a, conv_factor)
 
             a = self.absorb_j(a, conv_factor)  # couple different conv approx methods
             s = self.absorb_j(s, conv_factor)
-
-            a = self.append_bias_if_needed(a, name)  # after the centering
 
             a = self.expand_dim_a(a, name)  # align the dimensions of the moving averages
             s = self.expand_dim_s(s, name)
@@ -132,7 +132,7 @@ class KFAC_Actor():
             xc = tf.reduce_mean(x, axis=[0, 1], keepdims=True)
         else:
             xc = tf.reduce_mean(x, axis=0, keepdims=True)
-        return x - tf.reduce_mean(xc, axis=0, keepdims=True)
+        return x - xc
 
     # stream 'njf, fs -> njs' + append bias
     # env_w 'njf,kifs->njkis' + append bias
@@ -325,9 +325,9 @@ class Tikhonov():
         #print('eigs')
         #print(vals_a.shape, vecs_a.shape, g.shape, vals_s.shape, vecs_s.shape)
 
-        v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
+        v1 = tf.linalg.matmul(vecs_a, g, transpose_a=True) @ vecs_s
         divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
-        v2 = v1 / (divisor + damping / conv_factor)
+        v2 = v1 / (divisor + damping)
         ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
 
         return ng
@@ -370,7 +370,7 @@ class FactoredTikhonov():
 
         vals_a, vecs_a, vals_s, vecs_s = self.compute_eig_decomp(maa, mss)
 
-        v1 = tf.linalg.matmul(vecs_a, g / conv_factor, transpose_a=True) @ vecs_s
+        v1 = tf.linalg.matmul(vecs_a, g, transpose_a=True) @ vecs_s
         divisor = tf.expand_dims(vals_s, -2) * tf.expand_dims(vals_a, -1)
         v2 = v1 / divisor
         ng = vecs_a @ tf.linalg.matmul(v2, vecs_s, transpose_b=True)
@@ -397,14 +397,15 @@ class FactoredTikhonov():
             tr_s = self.get_tr_norm(m_ss)
             pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
 
+        pi = tf.clip_by_value(pi, 0.01, 100)
         eye_a = tf.eye(dim_a, batch_shape=batch_shape)
         eye_s = tf.eye(dim_s, batch_shape=batch_shape)
 
         eps = 1e-8
-        m_aa_damping = tf.sqrt(pi * damping / conv_factor)
+        m_aa_damping = tf.sqrt(pi * damping )
         # m_aa_damping = tf.maximum(eps * tf.ones_like(m_aa_damping), m_aa_damping)
 
-        m_ss_damping = tf.sqrt(damping / (pi * conv_factor))
+        m_ss_damping = tf.sqrt(damping / pi)
         # m_ss_damping = tf.maximum(eps * tf.ones_like(m_ss_damping), m_ss_damping)
 
         # print('damping')
@@ -414,8 +415,11 @@ class FactoredTikhonov():
         m_aa += eye_a * m_aa_damping
         m_ss += eye_s * m_ss_damping
 
+        tf.summary.scalar('damping/pi_%s_tra' % name, tf.reduce_mean(tr_a), iteration)
+        tf.summary.scalar('damping/pi_%s_trs' % name, tf.reduce_mean(tr_s), iteration)
         tf.summary.scalar('damping/pi_%s_aa' % name, tf.reduce_mean(m_aa_damping), iteration)
         tf.summary.scalar('damping/pi_%s_ss' % name, tf.reduce_mean(m_ss_damping), iteration)
+        tf.summary.scalar('damping/pi_%s' % name, tf.reduce_mean(pi), iteration)
         return m_aa, m_ss
 
     @staticmethod
