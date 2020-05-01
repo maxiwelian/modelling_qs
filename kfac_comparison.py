@@ -3,7 +3,7 @@ import os
 iterations = 1000
 system = 'Be'
 
-base_script = 'python main.py -gpu 8 --mix_input --full_pairwise -i 2500 -S %s -exp_dir kfac3004_baselines ' % system
+base_script = 'python main.py -gpu 8 --mix_input --full_pairwise -i 400 -S %s -exp_dir kfac3004_baselines ' % system
 # should center
 cov_weights = (0.05, 1.)
 ftms = ('original', 'alternate', 'ones_pi')

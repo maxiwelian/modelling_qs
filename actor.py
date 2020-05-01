@@ -130,11 +130,11 @@ class Network(object):
             e_loc = self.get_energy()
             e_loc_centered = self.center_energy(e_loc)
 
-        grads, m_aa, m_ss = self.kfac.extract_grads_and_a_and_s(self.model,
-                                                                self.samples,
-                                                                e_loc_centered,
-                                                                self.n_samples)
-        return grads, m_aa, m_ss
+        grads, m_aa, m_ss, all_a, all_s = self.kfac.extract_grads_and_a_and_s(self.model,
+                                                                              self.samples,
+                                                                              e_loc_centered,
+                                                                              self.n_samples)
+        return grads, m_aa, m_ss, all_a, all_s
 
     # samples
     def initialize_samples(self):

@@ -74,10 +74,6 @@ class KFAC_Actor():
         for a, s, g, name in zip(activations, sensitivities, grads, self.layers):
             conv_factor = extract_cv(name)
 
-            #print('xs')
-            #print(a.shape)
-            #print(s.shape)
-
             if self.should_center:  # d pfau said 'centering didnt have that much of an effect'
                 s = self.center(s, conv_factor)
                 a = self.center(a, conv_factor)
@@ -95,19 +91,10 @@ class KFAC_Actor():
             aa = self.outer_product_and_sum(a, name) / normalize
             ss = self.outer_product_and_sum(s, name) / normalize
 
-            #print('xxs')
-            #print(aa.shape)
-            #print(ss.shape)
-
             self.update_m_aa_and_m_ss(aa, ss, name, self.iteration)
 
-            #print('outs')
-            # print(self.m_aa[name].shape, tf.reduce_mean(tf.abs(self.m_aa[name].numpy())))
-            # print(self.m_ss[name].shape, tf.reduce_mean(tf.abs(self.m_ss[name].numpy())))
-            #print(g.shape)
-
         self.iteration += 1
-        return grads, self.m_aa, self.m_ss
+        return grads, self.m_aa, self.m_ss, activations, sensitivities
 
     def compute_comparison_gradient(self, als, ls, name, n_samples, g, conv_factor):
         als = self.absorb_j(als, name)
@@ -242,7 +229,14 @@ class KFAC():
 
         self.iteration = 0
 
-    def compute_updates(self, grads, m_aa, m_ss, iteration):
+    @staticmethod
+    def append_bias_if_needed(a, name):
+        if 'stream' in name or '_w_' in name:  # for streams or final linear transform in env
+            bias = tf.ones((*a.shape[:-1], 1))
+            return tf.concat((a, bias), axis=-1)
+        return a
+
+    def compute_updates(self, grads, m_aa, m_ss, all_a, all_s, iteration):
         self.lr = self.compute_lr(iteration)
         # print('lr:', self.lr)
         nat_grads = []
@@ -252,7 +246,10 @@ class KFAC():
             mss = m_ss[name]
 
             damping = self.damping / (1 + self.decay * 100 * iteration)
-            ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
+            if 'stream' in name or '_w_' in name:
+                ng = self.ops.compute_nat_grads(maa, mss, g, conv_factor, self.damping, name, iteration)
+            else:
+                ng = self.compute_exact_nat_grads(all_a[name], all_s[name], g, self.damping, name, iteration)
 
             nat_grads.append(ng)
 
@@ -260,6 +257,45 @@ class KFAC():
 
         self.iteration += 1
         return [eta * ng for ng in nat_grads]
+
+    def compute_exact_nat_grads(self, a, s, grad, damping, name, iteration):
+
+        n_dim = a.shape[-1] * s.shape[-1]
+        n_samples = a.shape[0]
+        if '_sigma_' in name:  # a (njmv) s (njkimc)
+            g = tf.einsum('njmv, njkimc -> nkimvc', a, s)
+            g = tf.reshape(g, (*g.shape[:-2], -1))
+            g = g - tf.reduce_mean(g, axis=0)
+            fisher_factor = tf.einsum('nkima, nkimb -> kimab', g, g) / n_samples
+            fisher_factor_damped = fisher_factor + tf.eye(n_dim, batch_shape=fisher_factor.shape[:-2])*damping
+            fisher_factor_inverse = tf.linalg.inv(fisher_factor_damped)
+            ng = fisher_factor_inverse @ tf.reshape(grad, (*grad.shape[:-2], -1, 1))
+
+        elif '_pi_' in name:  # a (njkim) s (njkis)
+            g = tf.einsum('njkim, njkis -> nkims', a, s)
+            g = tf.reshape(g, (*g.shape[:-2], -1))
+            g = g - tf.reduce_mean(g, axis=0)
+            fisher_factor = tf.einsum('nkia, nkib -> kiab', g, g) / n_samples
+            fisher_factor_damped = fisher_factor + tf.eye(n_dim, batch_shape=fisher_factor.shape[:-2])*damping
+            fisher_factor_inverse = tf.linalg.inv(fisher_factor_damped)
+            ng = fisher_factor_inverse @ tf.reshape(grad, (*grad.shape[:-2], -1, 1))
+
+        elif 'wf_' in name:  # a () s ()
+            a = tf.squeeze(a)
+            s = tf.expand_dims(tf.squeeze(s), -1)
+            g = tf.einsum('na, ns -> nas', a, s)
+            g = tf.reshape(g, (*g.shape[:-2], -1))
+            g = g - tf.reduce_mean(g, axis=0)
+            fisher_factor = tf.einsum('na, nb -> ab', g, g) / n_samples
+            fisher_factor_damped = fisher_factor + tf.eye(n_dim, batch_shape=fisher_factor.shape[:-2])
+            fisher_factor_inverse = tf.linalg.inv(fisher_factor_damped) + tf.eye(n_dim, batch_shape=fisher_factor.shape[:-2])*damping
+            ng = fisher_factor_inverse @ tf.reshape(grad, (*grad.shape[:-2], -1, 1))
+        else:
+            print(name)
+            ng = None
+
+        return tf.reshape(ng, grad.shape)
+
 
     def compute_norm_constraint(self, nat_grads, grads):
         sq_fisher_norm = 0
@@ -348,6 +384,7 @@ class FactoredTikhonov():
                 tr_a = self.get_tr_norm(m_aa)
                 tr_s = self.get_tr_norm(m_ss)
                 pi = tf.expand_dims(tf.expand_dims((tr_a * dim_s) / (tr_s * dim_a), -1), -1)
+
         elif self.ft_method == 'ones_pi':
             pi = tf.expand_dims(tf.expand_dims(tf.ones(batch_shape), -1), -1)
         else:

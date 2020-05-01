@@ -60,10 +60,14 @@ def get_grads_and_maa_and_mss(models, layers):
     grads = [d[0] for d in data]
     m_aa = [d[1] for d in data]
     m_ss = [d[2] for d in data]
+    a_all = [d[3] for d in data]
+    s_all = [d[4] for d in data]
 
     mean_g = []
     mean_m_aa = {}
     mean_m_ss = {}
+    concat_a = {}
+    concat_s = {}
     for j, name in enumerate(layers):
         mean_g.append(tf.reduce_mean(tf.stack([g[j] for g in grads]), axis=0))
         maa = (tf.reduce_mean(tf.stack([ma[name] for ma in m_aa]), axis=0))
@@ -75,7 +79,10 @@ def get_grads_and_maa_and_mss(models, layers):
         mean_m_aa[name] = maa
         mean_m_ss[name] = mss
 
-    return mean_g, mean_m_aa, mean_m_ss
+        concat_a[name] = tf.concat([a[j] for a in a_all], axis=0)
+        concat_s[name] = tf.concat([s[j] for s in s_all], axis=0)
+
+    return mean_g, mean_m_aa, mean_m_ss, concat_a, concat_s
 
 
 def step_forward(models, updates):

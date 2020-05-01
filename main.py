@@ -115,8 +115,8 @@ def main(config):
                 update_weights_optimizer(models, updates)
 
             else:
-                grads, m_aa, m_ss = get_grads_and_maa_and_mss(models, layers)
-                updates = kfac.compute_updates(grads, m_aa, m_ss, iteration)
+                grads, m_aa, m_ss, all_a, all_s = get_grads_and_maa_and_mss(models, layers)
+                updates = kfac.compute_updates(grads, m_aa, m_ss, all_a, all_s, iteration)
 
                 tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
