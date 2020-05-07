@@ -92,6 +92,10 @@ def step_forward(models, updates):
     [model.set_weights.remote(weights_id) for model in models[1:]]
     return
 
+def sync_mxx_across_actors(models, m_aa, m_ss):
+    m_aa_id = ray.put(m_aa)
+    m_ss_id = ray.put(m_ss)
+    [model.set_mxx.remote(m_aa_id, m_ss_id) for model in models[1:]]
 
 # energy
 def get_energy(models):

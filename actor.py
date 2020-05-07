@@ -160,6 +160,10 @@ class Network(object):
         for up, weight in zip(updates, self.model.trainable_weights):
             weight.assign_add(up)
 
+    def set_mxx(self, m_aa, m_ss):
+        self.kfac.m_aa = m_aa
+        self.kfac.m_ss = m_ss
+
     # network details
     def get_info(self):
         return self.amps, self.acceptance, self.samples, self.e_loc

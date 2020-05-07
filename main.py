@@ -121,6 +121,7 @@ def main(config):
                 tf.summary.scalar('kfac/lr', kfac.lr, iteration)
                 updates_lr = [-1. * kfac.lr * up for up in updates]
 
+                sync_mxx_across_actors(models, m_aa, m_ss)
                 step_forward(models, updates_lr)
 
             if iteration % config['log_every'] == 0:
@@ -152,7 +153,7 @@ if __name__ == '__main__':
     from actor import Network
     from actor_proxy import get_pretrain_grads, update_weights_pretrain  # pretraining
     from actor_proxy import get_grads, update_weights_optimizer  # adam
-    from actor_proxy import get_grads_and_maa_and_mss, step_forward  # kfac
+    from actor_proxy import get_grads_and_maa_and_mss, step_forward, sync_mxx_across_actors  # kfac
     from actor_proxy import burn, burn_pretrain  # sampling
     from actor_proxy import get_energy, get_energy_of_current_samples  # energy
 
@@ -234,6 +235,9 @@ if __name__ == '__main__':
         args.half_model = True
         args.full_pairwise = True
         args.mix_input = True
+
+    # python main.py -o kfac -exp sresidual --pretrain -exp_dir cholesky -gpu 4 -i 2000
+    # python main.py -o adam -exp sresidual --pretrain -exp_dir cholesky -gpu 4 -i 2000
 
     # python main.py -gpu 4 -o kfac -exp the1 -pi 2000 -bi 100 -i 100000 -dm ft -exp_dir the1 -ca ba
     # python main.py -gpu 1 -o kfac -exp first_run -pi 400 -bi 10 -i 1000 -dm ft -exp_dir ft_new_inv --local --half_model
