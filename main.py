@@ -75,7 +75,7 @@ def main(config):
     writer = tf.summary.create_file_writer(config['experiment'])
     with writer.as_default():
 
-        if config['load_iteration'] > 0: # load the model
+        if config['load_iteration'] > 0:  # load the model
             load_models(models, config['load_model_path'])
             load_samples(models, config['load_samples_path'])
 
@@ -181,8 +181,10 @@ if __name__ == '__main__':
     # kfac
     parser.add_argument('-dm', '--damping_method', help='ft or tikhonov', default='ft', type=str)
     parser.add_argument('-id', '--initial_damping', default=0.001, type=float)
+    parser.add_argument('-dd', '--damping_decay', default=0.001, type=float)
     parser.add_argument('-nc', '--norm_constraint', default=0.001, type=float)
-    parser.add_argument('-cw', '--cov_weight', default=0.05, type=float)
+    parser.add_argument('-cw', '--cov_weight', default=1., type=float)
+    parser.add_argument('-cmw', '--cov_moving_weight', default=0.95, type=float)
     parser.add_argument('-ca', '--conv_approx', default='ba', type=str)
     parser.add_argument('--use_exact_envs', help='use the exact fisher block for envs', action='store_true')
     parser.add_argument('--should_center', help='center activations and sensitivities', action='store_true')

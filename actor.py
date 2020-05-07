@@ -37,9 +37,7 @@ class Network(object):
         self.pretrainer = Pretrainer(**pretrainer_params)
 
         # * - sampling
-        self.sample_space = RandomWalker(gpu_id, tf.zeros(3),
-                                         tf.eye(3) * config['sampling_init'],
-                                         tf.zeros(3), tf.eye(3) * config['sampling_steps'], config['sampling_steps'])
+        self.sample_space = RandomWalker(gpu_id, 0.0, config['sampling_steps'])
 
         model_sampler_params = filter_dict(config, MetropolisHasting)
         self.model_sampler = MetropolisHasting(self.model, self.pretrainer, self.sample_space, gpu_id, **model_sampler_params)
@@ -50,7 +48,6 @@ class Network(object):
         self.burn_pretrain()
 
         self.validation_samples = self.model_sampler.initialize_samples()
-
 
         # * - model details
         self.n_params = np.sum([np.prod(v.get_shape().as_list()) for v in self.model.trainable_weights])
@@ -65,7 +62,7 @@ class Network(object):
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=config['lr0'])
             print('Using ADAM optimizer')
         elif config['opt'] == 'kfac':
-            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'] / 10, decay=config['decay'])
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'], decay=config['decay'])
             kfac_config = filter_dict(config, KFAC_Actor)
             self.kfac = KFAC_Actor(self.model, **kfac_config)
             print('Using kfac optimizer')

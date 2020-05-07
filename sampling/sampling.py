@@ -22,22 +22,26 @@ class MVGaussian(tfp.distributions.MultivariateNormalFullCovariance, SampleDistr
         return self.sample(prev_sample.shape[:-1], dtype=dtype)
 
 
-class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDistribution):
-    def __init__(self, gpu_id, mu, sigma, step_mu=None, step_sigma=None, sigma_normal=None):
-        super(RandomWalker, self).__init__(mu, sigma)
+# class RandomWalker(tfp.distributions.MultivariateNormalFullCovariance, SampleDistribution):
+#     def __init__(self, gpu_id, mu, sigma, sigma_cov=None, mu_cov=None):
+#         super(RandomWalker, self).__init__(mu, sigma)
+#
+#         self.gpu_id = gpu_id
+#         self.step_sigma = sigma
+#         # self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
+#
+#     @tf.function
+#     def resample(self, prev_sample):
+#         # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
+#         return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma)  # faster
 
-        if step_mu is None:
-            step_mu = mu
-        if step_sigma is None:
-            step_sigma = sigma
-
+class RandomWalker():
+    def __init__(self, gpu_id, mu, sigma, sigma_cov=None, mu_cov=None):
         self.gpu_id = gpu_id
-        self.step_sigma = sigma_normal
-        self.step_gaussian = tfp.distributions.MultivariateNormalFullCovariance(step_mu, step_sigma)
+        self.step_sigma = sigma
 
     @tf.function
     def resample(self, prev_sample):
-        # return prev_sample + self.step_gaussian.sample(prev_sample.shape[:-1], dtype=tf.float32)
         return prev_sample + tf.random.normal(prev_sample.shape, stddev=self.step_sigma)  # faster
 
 
@@ -45,7 +49,7 @@ class MetropolisHasting:
     def __init__(self,
                  model,
                  pretrainer,
-                 distr: SampleDistribution,
+                 distr: RandomWalker,
                  gpu_id,
                  n_samples: int,
                  n_electrons: int,
@@ -63,7 +67,7 @@ class MetropolisHasting:
         self.correlation_length = correlation_length
         self.model = model
         self.distr = distr
-        self.alpha_distr = tfp.distributions.Uniform(tf.cast(0, tf.float32), tf.cast(1, tf.float32))
+        self.alpha_distr = tfp.distributions.Uniform(0.0, 1.0)
         self.burn_batches = burn_batches
         self.pretrainer = pretrainer
         self.n_atoms = n_atoms

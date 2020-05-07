@@ -62,7 +62,7 @@ class fermiNet(tk.Model):
 
         # --- model
         if self.mix_input:
-            self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down, full_pairwise, input_mixer=True)
+            self.input_mixer = Mixer(n_electrons, nf_single_in, n_pairwise, nf_pairwise_in, n_spin_up, n_spin_down, full_pairwise)
             nf_single_in = nf_single_in_mixed
 
         self.single_stream_in = Stream(nf_single_in, nf_hidden_single, n_spins, gpu_id, 0)
@@ -154,7 +154,6 @@ class fermiNet(tk.Model):
                            s_up[0], s_up[1], s_up[2], s_down[0], s_down[1], s_down[2], s)
 
         return tf.squeeze(log_psi), sign, activation, sensitivity, spin_up_determinants, spin_down_determinants
-
 
 
 class envelopesLayer(tk.Model):
@@ -324,7 +323,7 @@ class Mixer(tk.Model):
     """
     Mixes stream outputs to input into single streams
     """
-    def __init__(self, n_electrons, n_single_features, n_pairwise, n_pairwise_features, n_spin_up, n_spin_down, full_pairwise, input_mixer=False):
+    def __init__(self, n_electrons, n_single_features, n_pairwise, n_pairwise_features, n_spin_up, n_spin_down, full_pairwise):
         super(Mixer, self).__init__()
 
         self.n_spin_up = tofloat(n_spin_up)
@@ -344,15 +343,6 @@ class Mixer(tk.Model):
         else:
             self.pairwise_spin_up_mask, self.pairwise_spin_down_mask = \
                 generate_pairwise_masks(n_electrons, n_pairwise, n_spin_up, n_spin_down, n_pairwise_features)
-
-
-        # if we wanted to change the normalization factor to the input
-        # if input_mixer:
-        #     self.up_norm = self.norm_up
-        #     self.down_norm = self.norm_down
-        # else:
-        #     self.up_norm = self.n_spin_up
-        #     self.down_norm = self.n_spin_down
 
     # @tf.function
     def call(self, single, pairwise, n_samples, n_electrons):
