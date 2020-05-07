@@ -209,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--full_pairwise', help='', action='store_true')
     parser.add_argument('--mix_input', help='', action='store_true')
     parser.add_argument('--test', help='', action='store_true')
+    parser.add_argument('--residual_final', help='', action='store_true')
 
     # paths
     parser.add_argument('-l', '--load_iteration', default=0, type=int)

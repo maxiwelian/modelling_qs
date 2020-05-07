@@ -30,10 +30,12 @@ class fermiNet(tk.Model):
                  env_init,
                  full_pairwise,
                  mix_final,
-                 mix_input):
+                 mix_input,
+                 residual_final):
 
         super(fermiNet, self).__init__()
 
+        self.residual_final = residual_final
         self.mix_input = mix_input
         self.mix_final = mix_final
         self.full_pairwise = full_pairwise
@@ -132,7 +134,11 @@ class fermiNet(tk.Model):
             pairwise, a_3_p, s_3_p = self.p3(pairwise, n_samples, self.n_pairwise, pairwise)
             single = self.m3(single, pairwise, n_samples, self.n_electrons)
         else:
-            single, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons, single)
+            if self.residual_final:
+                residual = single
+            else:
+                residual = 0.0
+            single, a_f, s_f = self.final_single_stream(single_mix, n_samples, self.n_electrons, residual)
 
         # --- envelopes
         spin_up_determinants, spin_down_determinants, a_up, s_up, a_down, s_down = \
