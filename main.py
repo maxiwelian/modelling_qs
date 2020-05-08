@@ -229,7 +229,8 @@ if __name__ == '__main__':
     args.should_center = True
     args.mix_input = True
     args.full_pairwise = True
-
+    args.mix_final = True
+    
     if args.test:
         args.local = True
         args.half_model = True

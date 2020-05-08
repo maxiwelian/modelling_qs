@@ -62,7 +62,7 @@ class Network(object):
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=config['lr0'])
             print('Using ADAM optimizer')
         elif config['opt'] == 'kfac':
-            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'], decay=config['decay'])
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr0'])
             kfac_config = filter_dict(config, KFAC_Actor)
             self.kfac = KFAC_Actor(self.model, **kfac_config)
             print('Using kfac optimizer')
